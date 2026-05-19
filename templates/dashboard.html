@@ -1,0 +1,3093 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FitPro — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --surface3: #22222e;
+    --border: #ffffff0f;
+    --border2: #ffffff1a;
+    --text: #f0f0f8;
+    --muted: #8888aa;
+    --accent: #7c5cfc;
+    --accent2: #a87fff;
+    --green: #00e5a0;
+    --green2: #00b87d;
+    --red: #ff4d6d;
+    --amber: #ffd166;
+    --sidebar-w: 240px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: var(--sidebar-w);
+    height: 100vh;
+    position: fixed;
+    left: 0; top: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem 1rem;
+    z-index: 100;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-track { background: transparent; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.4rem;
+    background: linear-gradient(135deg, var(--accent2), var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    padding: 0.5rem 0.8rem;
+    margin-bottom: 2rem;
+  }
+
+  .nav-section-label {
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 0 0.8rem;
+    margin: 1rem 0 0.5rem;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0.8rem;
+    border-radius: 10px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: #7c5cfc18; color: var(--accent2); }
+
+  .nav-item .icon { font-size: 1.1rem; width: 20px; text-align: center; }
+
+  .sidebar-bottom {
+    margin-top: auto;
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+  }
+
+  .user-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 0.8rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .user-card:hover { background: var(--surface2); }
+
+  .avatar {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--green2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .user-info { flex: 1; min-width: 0; }
+  .user-name { font-size: 0.85rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-plan {
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  .premium-crown { color: var(--amber); font-size: 0.8rem; }
+
+  /* ── MAIN ── */
+  .main {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.2rem 2rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .page-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+  }
+
+  .topbar-actions { display: flex; gap: 0.75rem; align-items: center; }
+
+  .btn {
+    padding: 0.55rem 1.2rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    border: none;
+  }
+
+  .btn-accent { background: var(--accent); color: #fff; }
+  .btn-accent:hover { background: var(--accent2); }
+  .btn-surface { background: var(--surface2); color: var(--muted); border: 1px solid var(--border2); }
+  .btn-surface:hover { color: var(--text); border-color: var(--border2); }
+  .btn-danger { background: #ff4d6d18; color: var(--red); border: 1px solid #ff4d6d30; }
+  .btn-danger:hover { background: #ff4d6d25; }
+
+  /* ── CONTENT ── */
+  .content {
+    padding: 2rem;
+    flex: 1;
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── STAT CARDS ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.4rem 1.5rem;
+    transition: all 0.2s;
+  }
+
+  .stat-card:hover { border-color: var(--border2); }
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.6rem;
+  }
+
+  .stat-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 0.3rem;
+  }
+
+  .stat-sub { font-size: 0.75rem; color: var(--muted); }
+
+  .stat-green .stat-value { color: var(--green); }
+  .stat-red .stat-value { color: var(--red); }
+  .stat-accent .stat-value { color: var(--accent2); }
+  .stat-amber .stat-value { color: var(--amber); }
+
+  /* ── GRID LAYOUTS ── */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.3rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .card-body { padding: 1.5rem; }
+
+  /* ── CHART ── */
+  .chart-wrap { position: relative; height: 220px; }
+
+  /* ── LOG TABLE ── */
+  .log-table { width: 100%; }
+
+  .log-row {
+    display: flex;
+    align-items: center;
+    padding: 0.9rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  .log-row:last-child { border-bottom: none; }
+  .log-row:hover { background: var(--surface2); }
+
+  .log-date { font-size: 0.8rem; color: var(--muted); width: 90px; flex-shrink: 0; }
+  .log-main { flex: 1; font-size: 0.9rem; }
+  .log-main strong { font-weight: 500; }
+  .log-meta { font-size: 0.8rem; color: var(--muted); margin-top: 0.1rem; }
+  .log-val { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.1rem; margin-right: 1rem; }
+  .log-del { background: none; border: none; color: var(--muted); cursor: pointer; padding: 0.3rem; border-radius: 6px; font-size: 0.9rem; transition: all 0.2s; }
+  .log-del:hover { color: var(--red); background: #ff4d6d15; }
+
+  /* ── WORKOUT TYPE BADGE ── */
+  .badge {
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    display: inline-block;
+  }
+
+  .badge-strength { background: #7c5cfc20; color: var(--accent2); }
+  .badge-cardio { background: #00e5a020; color: var(--green); }
+  .badge-yoga { background: #ffd16620; color: var(--amber); }
+  .badge-other { background: #ffffff10; color: var(--muted); }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #00000090;
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  .modal-overlay.active { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 460px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    animation: scaleIn 0.25s ease;
+  }
+
+  @keyframes scaleIn {
+    from { transform: scale(0.96); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 1rem; right: 1rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+  .modal-close:hover { color: var(--text); }
+
+  .modal-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 800;
+    margin-bottom: 1.5rem;
+  }
+
+  .form-group { margin-bottom: 1rem; }
+  label { display: block; font-size: 0.78rem; color: var(--muted); font-weight: 500; margin-bottom: 0.35rem; }
+
+  input, select, textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-family: 'DM Sans', sans-serif;
+    outline: none;
+    transition: all 0.2s;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px #7c5cfc20;
+  }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; }
+
+  textarea { resize: vertical; min-height: 70px; }
+
+  .modal-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+  .modal-actions .btn { flex: 1; padding: 0.8rem; }
+
+  /* ── PREMIUM LOCK ── */
+  .premium-lock {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2rem;
+    text-align: center;
+    gap: 1rem;
+  }
+
+  .lock-icon {
+    width: 64px; height: 64px;
+    background: linear-gradient(135deg, #ffd16630, #ff9f1c30);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    border: 1px solid #ffd16630;
+  }
+
+  .lock-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 800;
+  }
+
+  .lock-desc { color: var(--muted); font-size: 0.9rem; line-height: 1.6; max-width: 300px; }
+
+  /* ── AI ANALYSIS ── */
+  .ai-result {
+    background: linear-gradient(145deg, #7c5cfc0a, var(--surface2));
+    border: 1px solid #7c5cfc30;
+    border-radius: 14px;
+    padding: 1.5rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .ai-result-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .ai-icon {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+  }
+
+  .ai-summary { line-height: 1.7; font-size: 0.95rem; margin-bottom: 1.2rem; }
+
+  .suggestion-list { list-style: none; }
+  .suggestion-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  .suggestion-list li:last-child { border: none; }
+  .suggestion-list .s-icon { color: var(--accent2); flex-shrink: 0; margin-top: 2px; }
+
+  /* ── PROGRAM CARDS ── */
+  .program-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+
+  .program-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    padding: 1.4rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+  }
+
+  .program-btn:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .program-btn.selected { border-color: var(--accent); background: #7c5cfc12; }
+  .program-btn .p-icon { font-size: 1.8rem; margin-bottom: 0.75rem; }
+  .program-btn .p-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.95rem; margin-bottom: 0.3rem; }
+  .program-btn .p-desc { font-size: 0.78rem; color: var(--muted); line-height: 1.4; }
+
+  /* ── WORKOUT PLAN ── */
+  .day-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+  }
+
+  .day-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface3);
+  }
+
+  .day-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+
+  .day-focus { font-size: 0.78rem; color: var(--accent2); }
+
+  .exercise-row {
+    display: grid;
+    grid-template-columns: 1fr 80px 80px 70px;
+    align-items: center;
+    padding: 0.75rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+  }
+
+  .exercise-row:last-child { border: none; }
+  .exercise-name { font-weight: 500; }
+  .exercise-val { text-align: center; color: var(--muted); font-size: 0.8rem; }
+  .exercise-val strong { display: block; color: var(--text); font-size: 0.9rem; font-weight: 500; }
+
+  /* ── PAYMENT ── */
+  .plan-selector {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .plan-opt {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 1.2rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+
+  .plan-opt.selected { border-color: var(--accent); background: #7c5cfc12; }
+  .plan-opt .plan-price { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800; }
+  .plan-opt .plan-label { font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; }
+  .plan-opt .plan-save { font-size: 0.7rem; color: var(--green); margin-top: 0.3rem; font-weight: 500; }
+
+  .payment-form input {
+    letter-spacing: 0.5px;
+  }
+
+  .success-banner {
+    background: #00e5a012;
+    border: 1px solid #00e5a030;
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    display: none;
+  }
+
+  .success-banner.show { display: block; }
+  .success-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+  .success-title { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 800; color: var(--green); }
+
+  /* ── PROFILE ── */
+  .profile-header {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .profile-header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--green));
+  }
+
+  .profile-avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .profile-avatar {
+    width: 100px; height: 100px;
+    border-radius: 24px;
+    background: linear-gradient(135deg, var(--accent), var(--green2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #fff;
+    overflow: hidden;
+    border: 2px solid var(--border2);
+  }
+
+  .profile-avatar img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+  }
+
+  .avatar-upload-btn {
+    position: absolute;
+    bottom: -6px; right: -6px;
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.2s;
+  }
+
+  .avatar-upload-btn:hover { background: var(--accent2); transform: scale(1.1); }
+
+  .profile-info { flex: 1; }
+
+  .profile-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-bottom: 0.3rem;
+  }
+
+  .profile-email { color: var(--muted); font-size: 0.9rem; margin-bottom: 0.8rem; }
+
+  .profile-badges { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+  .profile-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.8rem;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .badge-member { background: #7c5cfc18; color: var(--accent2); border: 1px solid #7c5cfc30; }
+  .badge-premium-tag { background: #ffd16618; color: var(--amber); border: 1px solid #ffd16630; }
+  .badge-free { background: #ffffff0a; color: var(--muted); border: 1px solid var(--border2); }
+
+  .profile-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  .bmi-display {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.2rem 0;
+  }
+
+  .bmi-circle {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    border: 4px solid var(--accent);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .bmi-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--accent2);
+    line-height: 1;
+  }
+
+  .bmi-label { font-size: 0.6rem; color: var(--muted); margin-top: 2px; }
+  .bmi-category { font-size: 0.85rem; font-weight: 500; }
+  .bmi-desc { font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; }
+
+  .goal-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.8rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .goal-item:last-child { border: none; }
+
+  .goal-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: var(--surface3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  .goal-label { font-size: 0.75rem; color: var(--muted); }
+  .goal-val { font-size: 0.95rem; font-weight: 500; }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .info-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+  }
+
+  .info-item-label { font-size: 0.7rem; color: var(--muted); font-weight: 500; margin-bottom: 0.3rem; letter-spacing: 0.5px; }
+  .info-item-val { font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 800; }
+
+  .save-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 0.75rem 1.8rem;
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 1rem;
+  }
+
+  .save-btn:hover { background: var(--accent2); }
+
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: var(--surface);
+    border: 1px solid var(--green);
+    color: var(--green);
+    padding: 0.8rem 1.4rem;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    z-index: 9999;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  .activity-bar {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+
+  .act-opt {
+    flex: 1;
+    padding: 0.6rem 0.4rem;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 0.72rem;
+    color: var(--muted);
+    transition: all 0.2s;
+  }
+
+  .act-opt.selected { border-color: var(--accent); background: #7c5cfc15; color: var(--accent2); }
+  .act-opt .act-icon { font-size: 1.1rem; display: block; margin-bottom: 0.2rem; }
+
+  
+  .progress-bar {
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 10px;
+    margin-top: 0.6rem;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--green));
+    border-radius: 10px;
+    transition: width 0.8s ease;
+  }
+
+  /* ── EMPTY STATE ── */
+  .empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--muted);
+  }
+  .empty-icon { font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.5; }
+  .empty-text { font-size: 0.9rem; }
+
+  /* ── SCORE RING ── */
+  .score-wrap { display: flex; align-items: center; gap: 1.5rem; padding: 1rem 0; }
+  .score-ring {
+    position: relative;
+    width: 80px; height: 80px;
+    flex-shrink: 0;
+  }
+  .score-ring svg { transform: rotate(-90deg); }
+  .score-ring .ring-bg { fill: none; stroke: var(--surface3); stroke-width: 8; }
+  .score-ring .ring-fill { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1s ease; }
+  .score-num {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.2rem;
+  }
+
+  .loading {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+    padding: 1rem;
+  }
+
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── NUTRITION ── */
+  .macro-bar-wrap { margin-bottom: 1.2rem; }
+  .macro-bar-label { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.4rem; }
+  .macro-bar-label span:first-child { color: var(--muted); }
+  .macro-bar { height: 8px; background: var(--surface3); border-radius: 10px; overflow: hidden; }
+  .macro-bar-fill { height: 100%; border-radius: 10px; transition: width 0.6s ease; }
+  .macro-protein { background: var(--accent2); }
+  .macro-carb { background: var(--amber); }
+  .macro-fat { background: var(--green); }
+
+  .food-row { display: flex; align-items: center; padding: 0.85rem 1.5rem; border-bottom: 1px solid var(--border); transition: background 0.15s; }
+  .food-row:hover { background: var(--surface2); }
+  .food-row:last-child { border: none; }
+  .food-name { flex: 1; font-size: 0.9rem; font-weight: 500; }
+  .food-macros { display: flex; gap: 1rem; font-size: 0.78rem; color: var(--muted); margin-top: 0.15rem; }
+  .food-kcal { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; color: var(--amber); margin-right: 1rem; }
+
+  .calorie-ring-wrap { display: flex; align-items: center; gap: 2rem; padding: 1rem 0; }
+  .calorie-ring { position: relative; width: 110px; height: 110px; flex-shrink: 0; }
+  .calorie-ring svg { transform: rotate(-90deg); }
+  .calorie-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .calorie-num { font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 800; color: var(--amber); line-height: 1; }
+  .calorie-sub { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+
+  /* ── MEASUREMENTS ── */
+  .measure-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+  .measure-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 14px; padding: 1.2rem; text-align: center; transition: all 0.2s; }
+  .measure-card:hover { border-color: var(--border2); }
+  .measure-icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
+  .measure-val { font-family: 'Syne', sans-serif; font-size: 1.6rem; font-weight: 800; }
+  .measure-label { font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; }
+  .measure-change { font-size: 0.72rem; margin-top: 0.3rem; }
+
+  /* ── BADGES ── */
+  .badges-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1rem; }
+  .badge-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem 1rem; text-align: center; transition: all 0.3s; position: relative; overflow: hidden; }
+  .badge-card.earned { border-color: var(--amber); background: linear-gradient(145deg, #ffd16608, var(--surface)); }
+  .badge-card.earned::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--amber), #ff9f1c); }
+  .badge-card.locked { opacity: 0.4; filter: grayscale(0.8); }
+  .badge-icon-wrap { width: 60px; height: 60px; border-radius: 18px; margin: 0 auto 1rem; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; }
+  .badge-card.earned .badge-icon-wrap { background: #ffd16620; }
+  .badge-card.locked .badge-icon-wrap { background: var(--surface2); }
+  .badge-name { font-family: 'Syne', sans-serif; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.4rem; }
+  .badge-desc { font-size: 0.75rem; color: var(--muted); line-height: 1.4; }
+  .badge-earned-tag { display: inline-block; background: #ffd16620; color: var(--amber); font-size: 0.65rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 100px; margin-top: 0.6rem; }
+  .badge-locked-tag { display: inline-block; background: var(--surface2); color: var(--muted); font-size: 0.65rem; padding: 0.2rem 0.6rem; border-radius: 100px; margin-top: 0.6rem; }
+  .badges-summary { display: flex; align-items: center; gap: 1.5rem; background: linear-gradient(135deg, #ffd16610, var(--surface2)); border: 1px solid #ffd16630; border-radius: 14px; padding: 1.5rem; margin-bottom: 1.5rem; }
+  .badges-count { font-family: 'Syne', sans-serif; font-size: 3rem; font-weight: 800; color: var(--amber); line-height: 1; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="logo">FitPro</div>
+
+  <div class="nav-section-label">Ana Menü</div>
+  <button class="nav-item active" onclick="showPage('overview')">
+    <span class="icon">📊</span> Genel Bakış
+  </button>
+  <button class="nav-item" onclick="showPage('weight')">
+    <span class="icon">⚖️</span> Kilo Takibi
+  </button>
+  <button class="nav-item" onclick="showPage('workouts')">
+    <span class="icon">🏋️</span> Antrenmanlar
+  </button>
+  <button class="nav-item" onclick="showPage('badges')">
+    <span class="icon">🏆</span> Rozetler
+  </button>
+
+  <div class="nav-section-label">Premium</div>
+  <button class="nav-item" onclick="showPage('nutrition')">
+    <span class="icon">🍎</span> Kalori & Makro
+  </button>
+  <button class="nav-item" onclick="showPage('measurements')">
+    <span class="icon">📏</span> Vücut Ölçüleri
+  </button>
+  <button class="nav-item" onclick="showPage('analytics')">
+    <span class="icon">📈</span> Gelişim Grafikleri
+  </button>
+  <button class="nav-item" onclick="showPage('ai')">
+    <span class="icon">🤖</span> AI Analizi
+  </button>
+  <button class="nav-item" onclick="showPage('program')">
+    <span class="icon">💪</span> Program Oluştur
+  </button>
+
+  <div class="nav-section-label">Hesap</div>
+  <button class="nav-item" onclick="showPage('profile')">
+    <span class="icon">👤</span> Profilim
+  </button>
+  <button class="nav-item" onclick="showPage('premium')">
+    <span class="icon">👑</span> Premium'a Geç
+  </button>
+
+  <div class="sidebar-bottom">
+    <div class="user-card" id="userCard">
+      <div class="avatar" id="userAvatar">?</div>
+      <div class="user-info">
+        <div class="user-name" id="userName">Yükleniyor...</div>
+        <div class="user-plan" id="userPlan">Ücretsiz</div>
+      </div>
+    </div>
+    <button class="nav-item" onclick="logout()" style="margin-top: 0.3rem;">
+      <span class="icon">🚪</span> Çıkış Yap
+    </button>
+  </div>
+</aside>
+
+<!-- Main -->
+<div class="main">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="page-title" id="pageTitle">Genel Bakış</div>
+    <div class="topbar-actions" id="topbarActions"></div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- OVERVIEW PAGE -->
+    <div class="page active" id="page-overview">
+      <div class="stats-row" id="statsRow">
+        <div class="stat-card">
+          <div class="stat-label">MEVCUT KİLO</div>
+          <div class="stat-value" id="stat-weight">—</div>
+          <div class="stat-sub">kg</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">KİLO DEĞİŞİMİ</div>
+          <div class="stat-value" id="stat-change">—</div>
+          <div class="stat-sub">toplam fark</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">BU HAFTA ANTRENMAN</div>
+          <div class="stat-value stat-accent" id="stat-workouts">—</div>
+          <div class="stat-sub">seans</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">YAKILAN KALORİ</div>
+          <div class="stat-value stat-amber" id="stat-calories">—</div>
+          <div class="stat-sub">bu hafta kcal</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Kilo Trendi</div>
+            <button class="btn btn-accent" onclick="showPage('weight')" style="font-size:0.78rem;padding:0.4rem 0.9rem;">+ Kilo Ekle</button>
+          </div>
+          <div class="card-body">
+            <div class="chart-wrap">
+              <canvas id="weightChartOverview"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Son Antrenmanlar</div>
+          </div>
+          <div id="recentWorkouts">
+            <div class="loading"><div class="spinner"></div> Yükleniyor...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WEIGHT PAGE -->
+    <div class="page" id="page-weight">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Kilo Geçmişi</div>
+        </div>
+        <div class="card-body" style="padding-bottom: 0;">
+          <div class="chart-wrap" style="height: 200px;">
+            <canvas id="weightChartFull"></canvas>
+          </div>
+        </div>
+        <div id="weightLogs">
+          <div class="loading"><div class="spinner"></div> Yükleniyor...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WORKOUTS PAGE -->
+    <div class="page" id="page-workouts">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Antrenman Geçmişi</div>
+        </div>
+        <div id="workoutLogs">
+          <div class="loading"><div class="spinner"></div> Yükleniyor...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANALYTICS PAGE (Premium) -->
+    <div class="page" id="page-analytics">
+      <div id="analyticsContent"></div>
+    </div>
+
+    <!-- AI PAGE (Premium) -->
+    <div class="page" id="page-ai">
+      <div id="aiContent"></div>
+    </div>
+
+    <!-- PROGRAM PAGE (Premium) -->
+    <div class="page" id="page-program">
+      <div id="programContent"></div>
+    </div>
+
+    <!-- PROFILE PAGE -->
+    <div class="page" id="page-profile">
+      <div id="profileContent"></div>
+    </div>
+
+    <!-- NUTRITION PAGE -->
+    <div class="page" id="page-nutrition">
+      <div id="nutritionContent"></div>
+    </div>
+
+    <!-- MEASUREMENTS PAGE -->
+    <div class="page" id="page-measurements">
+      <div id="measurementsContent"></div>
+    </div>
+
+    <!-- BADGES PAGE -->
+    <div class="page" id="page-badges">
+      <div id="badgesContent"></div>
+    </div>
+
+    <!-- PREMIUM PAGE -->
+    <div class="page" id="page-premium">
+      <div id="premiumContent"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Add Weight Modal -->
+<div class="modal-overlay" id="weightModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('weightModal')">✕</button>
+    <div class="modal-title">Kilo Ekle</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Kilo (kg)</label>
+        <input type="number" id="wWeight" placeholder="75.5" step="0.1">
+      </div>
+      <div class="form-group">
+        <label>Tarih</label>
+        <input type="date" id="wDate">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Not (isteğe bağlı)</label>
+      <textarea id="wNotes" placeholder="Sabah ölçümü..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-surface" onclick="closeModal('weightModal')">İptal</button>
+      <button class="btn btn-accent" onclick="addWeight()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Workout Modal -->
+<div class="modal-overlay" id="workoutModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('workoutModal')">✕</button>
+    <div class="modal-title">Antrenman Ekle</div>
+    <div class="form-group">
+      <label>Antrenman Adı</label>
+      <input type="text" id="woName" placeholder="Göğüs Günü, Kardio...">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Tip</label>
+        <select id="woType">
+          <option value="strength">Güç Antrenmanı</option>
+          <option value="cardio">Kardio</option>
+          <option value="yoga">Yoga / Esneme</option>
+          <option value="other">Diğer</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Tarih</label>
+        <input type="date" id="woDate">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Süre (dk)</label>
+        <input type="number" id="woDuration" placeholder="60">
+      </div>
+      <div class="form-group">
+        <label>Yakılan Kalori</label>
+        <input type="number" id="woCalories" placeholder="350">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Notlar</label>
+      <textarea id="woNotes" placeholder="PR kırdım! Bench press 80kg..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-surface" onclick="closeModal('workoutModal')">İptal</button>
+      <button class="btn btn-accent" onclick="addWorkout()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Food Modal -->
+<div class="modal-overlay" id="foodModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('foodModal')">✕</button>
+    <div class="modal-title">Yemek Ekle 🍎</div>
+    <div class="form-group">
+      <label>Yemek Adı</label>
+      <input type="text" id="foodName" placeholder="Tavuk göğsü, Yulaf ezmesi...">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Öğün</label>
+        <select id="foodMeal">
+          <option value="breakfast">Kahvaltı</option>
+          <option value="lunch">Öğle</option>
+          <option value="dinner">Akşam</option>
+          <option value="snack">Ara Öğün</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Kalori (kcal)</label>
+        <input type="number" id="foodKcal" placeholder="250">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Protein (g)</label>
+        <input type="number" id="foodProtein" placeholder="30">
+      </div>
+      <div class="form-group">
+        <label>Karbonhidrat (g)</label>
+        <input type="number" id="foodCarb" placeholder="20">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Yağ (g)</label>
+        <input type="number" id="foodFat" placeholder="8">
+      </div>
+      <div class="form-group">
+        <label>Tarih</label>
+        <input type="date" id="foodDate">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-surface" onclick="closeModal('foodModal')">İptal</button>
+      <button class="btn btn-accent" onclick="addFood()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Measurement Modal -->
+<div class="modal-overlay" id="measureModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('measureModal')">✕</button>
+    <div class="modal-title">Vücut Ölçüsü Ekle 📏</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Bel (cm)</label>
+        <input type="number" id="mWaist" placeholder="80" step="0.5">
+      </div>
+      <div class="form-group">
+        <label>Göğüs (cm)</label>
+        <input type="number" id="mChest" placeholder="95" step="0.5">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Kalça (cm)</label>
+        <input type="number" id="mHip" placeholder="100" step="0.5">
+      </div>
+      <div class="form-group">
+        <label>Kol (cm)</label>
+        <input type="number" id="mArm" placeholder="35" step="0.5">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Bacak (cm)</label>
+        <input type="number" id="mThigh" placeholder="55" step="0.5">
+      </div>
+      <div class="form-group">
+        <label>Boyun (cm)</label>
+        <input type="number" id="mNeck" placeholder="38" step="0.5">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Tarih</label>
+      <input type="date" id="mDate">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-surface" onclick="closeModal('measureModal')">İptal</button>
+      <button class="btn btn-accent" onclick="addMeasurement()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Payment Modal -->
+<div class="modal-overlay" id="paymentModal">
+  <div class="modal" style="max-width: 500px;">
+    <button class="modal-close" onclick="closeModal('paymentModal')">✕</button>
+    <div class="modal-title">Premium'a Geç 👑</div>
+
+    <div class="success-banner" id="paymentSuccess">
+      <div class="success-icon">🎉</div>
+      <div class="success-title">Premium Aktif!</div>
+      <p style="color: var(--muted); font-size: 0.9rem; margin-top: 0.5rem;">Tüm premium özelliklere erişiminiz açıldı.</p>
+      <button class="btn btn-accent" style="margin-top: 1rem; width: 100%;" onclick="location.reload()">Dashboard'a Dön</button>
+    </div>
+
+    <div id="paymentForm">
+      <div class="plan-selector">
+        <div class="plan-opt selected" id="planMonthly" onclick="selectPlan('monthly')">
+          <div class="plan-price">₺99</div>
+          <div class="plan-label">Aylık</div>
+        </div>
+        <div class="plan-opt" id="planYearly" onclick="selectPlan('yearly')">
+          <div class="plan-price">₺799</div>
+          <div class="plan-label">Yıllık</div>
+          <div class="plan-save">%33 tasarruf</div>
+        </div>
+      </div>
+
+      <div class="payment-form">
+        <div class="form-group">
+          <label>Kart Üzerindeki İsim</label>
+          <input type="text" id="cardName" placeholder="Ad Soyad">
+        </div>
+        <div class="form-group">
+          <label>Kart Numarası</label>
+          <input type="text" id="cardNumber" placeholder="4242 4242 4242 4242" maxlength="19" oninput="formatCard(this)">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Son Kullanma Tarihi</label>
+            <input type="text" id="cardExpiry" placeholder="AA/YY" maxlength="5">
+          </div>
+          <div class="form-group">
+            <label>CVV</label>
+            <input type="text" id="cardCVV" placeholder="123" maxlength="3">
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-accent" style="width: 100%; padding: 0.9rem; font-size: 1rem;" onclick="processPayment()" id="payBtn">
+        Ödemeyi Tamamla
+      </button>
+      <p style="text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 0.8rem;">
+        🔒 256-bit SSL şifrelemesi ile güvenli ödeme
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentUser = null;
+  let weightData = [];
+  let workoutData = [];
+  let selectedPlan = 'monthly';
+  let weightChartOverview = null;
+  let weightChartFull = null;
+  let selectedGoal = 'general';
+
+  const today = new Date().toISOString().split('T')[0];
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+
+  async function init() {
+    const res = await fetch('/api/me');
+    if (!res.ok) { window.location.href = '/'; return; }
+    currentUser = await res.json();
+    if (!currentUser || currentUser.error) { window.location.href = '/'; return; }
+
+    document.getElementById('userAvatar').textContent = currentUser.username[0].toUpperCase();
+    document.getElementById('userName').textContent = currentUser.username;
+    document.getElementById('userPlan').innerHTML = currentUser.is_premium
+      ? '<span class="premium-crown">👑</span> Premium'
+      : 'Ücretsiz';
+
+    await loadStats();
+    await loadWeights();
+    await loadWorkouts();
+    await loadFoods();
+    await loadMeasurements();
+  }
+
+  // ── Navigation ────────────────────────────────────────────────────────────
+
+  const pageTitles = {
+    overview: 'Genel Bakış', weight: 'Kilo Takibi', workouts: 'Antrenmanlar',
+    analytics: 'Gelişim Grafikleri', ai: 'AI Analizi', program: 'Program Oluştur',
+    profile: 'Profilim', premium: 'Premium',
+    nutrition: 'Kalori & Makro Takibi',
+    measurements: 'Vücut Ölçüleri',
+    badges: '🏆 Rozetlerim'
+  };
+
+  function showPage(name) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    document.getElementById('pageTitle').textContent = pageTitles[name];
+
+    const btns = {
+      weight: `<button class="btn btn-accent" onclick="openModal('weightModal')">+ Kilo Ekle</button>`,
+      workouts: `<button class="btn btn-accent" onclick="openModal('workoutModal')">+ Antrenman Ekle</button>`,
+      nutrition: currentUser.is_premium ? `<button class="btn btn-accent" onclick="openModal('foodModal')">+ Yemek Ekle</button>` : '',
+      measurements: currentUser.is_premium ? `<button class="btn btn-accent" onclick="openModal('measureModal')">+ Ölçü Ekle</button>` : ''
+    };
+    document.getElementById('topbarActions').innerHTML = btns[name] || '';
+
+    if (name === 'analytics') renderAnalytics();
+    if (name === 'ai') renderAI();
+    if (name === 'program') renderProgram();
+    if (name === 'profile') renderProfile();
+    if (name === 'nutrition') renderNutrition();
+    if (name === 'measurements') renderMeasurements();
+    if (name === 'badges') renderBadges();
+    if (name === 'premium') renderPremiumPage();
+    if (name === 'weight') setTimeout(renderWeightChartFull, 100);
+    if (name === 'overview') setTimeout(renderOverviewChart, 100);
+
+    document.querySelectorAll('.nav-item').forEach(btn => {
+      if (btn.textContent.trim().includes(pageTitles[name].split(' ')[0]) ||
+          (name === 'overview' && btn.textContent.includes('Genel'))) {
+        btn.classList.add('active');
+      }
+    });
+  }
+
+  // ── Data Loading ──────────────────────────────────────────────────────────
+
+  async function loadStats() {
+    const res = await fetch('/api/stats');
+    const s = await res.json();
+
+    document.getElementById('stat-weight').textContent = s.current_weight ? s.current_weight.toFixed(1) : '—';
+    const changeEl = document.getElementById('stat-change');
+    if (s.weight_change !== 0) {
+      changeEl.textContent = (s.weight_change > 0 ? '+' : '') + s.weight_change + ' kg';
+      changeEl.parentElement.className = 'stat-card ' + (s.weight_change < 0 ? 'stat-green' : 'stat-red');
+    } else {
+      changeEl.textContent = '0 kg';
+    }
+    document.getElementById('stat-workouts').textContent = s.workouts_this_week;
+    document.getElementById('stat-calories').textContent = s.calories_this_week.toLocaleString();
+  }
+
+  async function loadWeights() {
+    const res = await fetch('/api/weight');
+    weightData = await res.json();
+    if (weightData.length) currentUser.current_weight = weightData[weightData.length-1].weight;
+    renderWeightLogs();
+    renderOverviewChart();
+  }
+
+  async function loadWorkouts() {
+    const res = await fetch('/api/workouts');
+    workoutData = await res.json();
+    renderWorkoutLogs();
+    renderRecentWorkouts();
+  }
+
+  // ── Render: Weight Logs ───────────────────────────────────────────────────
+
+  function renderWeightLogs() {
+    const el = document.getElementById('weightLogs');
+    if (!weightData.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">⚖️</div><div class="empty-text">Henüz kilo kaydı yok</div></div>`;
+      return;
+    }
+    el.innerHTML = [...weightData].reverse().map(w => `
+      <div class="log-row">
+        <div class="log-date">${formatDate(w.date)}</div>
+        <div class="log-main">
+          <strong>${w.weight.toFixed(1)} kg</strong>
+          ${w.notes ? `<div class="log-meta">${w.notes}</div>` : ''}
+        </div>
+        <button class="log-del" onclick="deleteWeight(${w.id})">✕</button>
+      </div>
+    `).join('');
+  }
+
+  // ── Render: Workout Logs ──────────────────────────────────────────────────
+
+  function renderWorkoutLogs() {
+    const el = document.getElementById('workoutLogs');
+    if (!workoutData.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Henüz antrenman kaydı yok</div></div>`;
+      return;
+    }
+    el.innerHTML = workoutData.map(w => `
+      <div class="log-row">
+        <div class="log-date">${formatDate(w.date)}</div>
+        <div class="log-main">
+          <strong>${w.name}</strong>
+          <div class="log-meta">
+            <span class="badge badge-${w.workout_type}">${typeLabel(w.workout_type)}</span>
+            ${w.duration ? ` · ${w.duration} dk` : ''}
+            ${w.calories_burned ? ` · ${w.calories_burned} kcal` : ''}
+          </div>
+        </div>
+        <button class="log-del" onclick="deleteWorkout(${w.id})">✕</button>
+      </div>
+    `).join('');
+  }
+
+  function renderRecentWorkouts() {
+    const el = document.getElementById('recentWorkouts');
+    const recent = workoutData.slice(0, 4);
+    if (!recent.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Henüz antrenman yok</div></div>`;
+      return;
+    }
+    el.innerHTML = recent.map(w => `
+      <div class="log-row">
+        <div class="log-date">${formatDate(w.date)}</div>
+        <div class="log-main">
+          <strong>${w.name}</strong>
+          <div class="log-meta"><span class="badge badge-${w.workout_type}">${typeLabel(w.workout_type)}</span>${w.duration ? ` · ${w.duration}dk` : ''}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ── Charts ────────────────────────────────────────────────────────────────
+
+  const chartDefaults = {
+    type: 'line',
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#ffffff0a' }, ticks: { color: '#8888aa', font: { size: 11 } } },
+        y: { grid: { color: '#ffffff0a' }, ticks: { color: '#8888aa', font: { size: 11 } } }
+      },
+      elements: { point: { radius: 4, hitRadius: 10 } }
+    }
+  };
+
+  function buildWeightChartData(limit) {
+    const data = limit ? weightData.slice(-limit) : weightData;
+    return {
+      labels: data.map(w => formatDateShort(w.date)),
+      datasets: [{
+        data: data.map(w => w.weight),
+        borderColor: '#7c5cfc',
+        backgroundColor: '#7c5cfc15',
+        fill: true,
+        tension: 0.4,
+        borderWidth: 2,
+        pointBackgroundColor: '#a87fff'
+      }]
+    };
+  }
+
+  function renderOverviewChart() {
+    const ctx = document.getElementById('weightChartOverview');
+    if (!ctx) return;
+    if (weightChartOverview) weightChartOverview.destroy();
+    weightChartOverview = new Chart(ctx, {
+      type: 'line',
+      data: buildWeightChartData(14),
+      options: chartDefaults.options
+    });
+  }
+
+  function renderWeightChartFull() {
+    const ctx = document.getElementById('weightChartFull');
+    if (!ctx) return;
+    if (weightChartFull) weightChartFull.destroy();
+    weightChartFull = new Chart(ctx, {
+      type: 'line',
+      data: buildWeightChartData(),
+      options: chartDefaults.options
+    });
+  }
+
+  // ── Analytics Page ────────────────────────────────────────────────────────
+
+  function renderAnalytics() {
+    const el = document.getElementById('analyticsContent');
+    if (!currentUser.is_premium) {
+      el.innerHTML = premiumLock('Gelişim Grafikleri');
+      return;
+    }
+
+    el.innerHTML = `
+      <div class="stats-row" style="margin-bottom: 1.5rem;">
+        <div class="stat-card"><div class="stat-label">TOPLAM KİLO KAYDI</div><div class="stat-value stat-accent">${weightData.length}</div><div class="stat-sub">giriş</div></div>
+        <div class="stat-card"><div class="stat-label">TOPLAM ANTRENMAN</div><div class="stat-value stat-green">${workoutData.length}</div><div class="stat-sub">seans</div></div>
+        <div class="stat-card"><div class="stat-label">TOPLAM SÜRE</div><div class="stat-value stat-amber">${workoutData.reduce((a,b)=>a+(b.duration||0),0)}</div><div class="stat-sub">dakika</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Tüm Kilo Geçmişi</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="anaWeightChart"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Antrenman Tiplerine Göre</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="anaTypeChart"></canvas></div></div>
+        </div>
+      </div>
+    `;
+
+    setTimeout(() => {
+      new Chart(document.getElementById('anaWeightChart'), {
+        type: 'line', data: buildWeightChartData(), options: chartDefaults.options
+      });
+
+      const types = {};
+      workoutData.forEach(w => { types[typeLabel(w.workout_type)] = (types[typeLabel(w.workout_type)] || 0) + 1; });
+      new Chart(document.getElementById('anaTypeChart'), {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(types),
+          datasets: [{ data: Object.values(types), backgroundColor: ['#7c5cfc', '#00e5a0', '#ffd166', '#ff4d6d'], borderWidth: 0 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { color: '#8888aa', padding: 12, font: { size: 11 } } } }
+        }
+      });
+    }, 100);
+  }
+
+  // ── AI Page ───────────────────────────────────────────────────────────────
+
+  function renderAI() {
+    const el = document.getElementById('aiContent');
+    if (!currentUser.is_premium) {
+      el.innerHTML = premiumLock('AI Analizi');
+      return;
+    }
+
+    el.innerHTML = `
+      <div class="card" style="max-width: 700px;">
+        <div class="card-header">
+          <div class="card-title">🤖 AI Performans Analizi</div>
+          <button class="btn btn-accent" onclick="runAIAnalysis()">Analiz Et</button>
+        </div>
+        <div class="card-body" id="aiResultArea">
+          <div class="empty"><div class="empty-icon">🤖</div><div class="empty-text">"Analiz Et" butonuna basarak AI analizini başlatın</div></div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function runAIAnalysis() {
+    document.getElementById('aiResultArea').innerHTML = `<div class="loading"><div class="spinner"></div> AI analiz yapıyor...</div>`;
+    const res = await fetch('/api/ai/analyze', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' });
+    const data = await res.json();
+    if (!res.ok) { return; }
+    const a = data.analysis;
+
+    const trendIcon = a.trend === 'down' ? '📉' : a.trend === 'up' ? '📈' : '➡️';
+    const trendColor = a.trend === 'down' ? 'var(--green)' : a.trend === 'up' ? 'var(--red)' : 'var(--muted)';
+
+    const circumference = 2 * Math.PI * 34;
+    const offset = circumference - (a.progress_score / 100) * circumference;
+
+    document.getElementById('aiResultArea').innerHTML = `
+      <div class="ai-result">
+        <div class="ai-result-header">
+          <div class="ai-icon">🤖</div>
+          <div>
+            <div style="font-weight: 600; font-size: 0.95rem;">AI Özet Rapor</div>
+            <div style="font-size: 0.78rem; color: var(--muted);">Verileriniz analiz edildi</div>
+          </div>
+        </div>
+        <div class="score-wrap">
+          <div class="score-ring">
+            <svg viewBox="0 0 80 80" width="80" height="80">
+              <circle class="ring-bg" cx="40" cy="40" r="34"/>
+              <circle class="ring-fill" cx="40" cy="40" r="34"
+                stroke="${trendColor}"
+                stroke-dasharray="${circumference}"
+                stroke-dashoffset="${offset}"/>
+            </svg>
+            <div class="score-num" style="color: ${trendColor};">${a.progress_score}</div>
+          </div>
+          <div>
+            <div style="font-size: 1.1rem; font-weight: 600;">${trendIcon} Trend Analizi</div>
+            <div class="ai-summary" style="margin: 0.5rem 0 0;">${a.summary}</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-title" style="margin-bottom: 0.8rem;">💡 Öneriler</div>
+      <ul class="suggestion-list">
+        ${a.suggestions.map(s => `<li><span class="s-icon">→</span>${s}</li>`).join('')}
+      </ul>
+    `;
+  }
+
+  // ── Program Page ──────────────────────────────────────────────────────────
+
+  // ── Program wizard state ─────────────────────────────────────────────────
+  let wizardAnswers = {};
+  let wizardStep = 0;
+
+  const wizardQuestions = [
+    {
+      id: 'goal',
+      question: 'Temel hedefin ne?',
+      icon: '🎯',
+      type: 'choice',
+      options: [
+        {val:'fat_loss',     label:'Yağ Yakmak',       icon:'🔥', desc:'Vücut yağını azaltmak'},
+        {val:'muscle_gain',  label:'Kas Kazanmak',      icon:'💪', desc:'Hacim ve güç artırmak'},
+        {val:'endurance',    label:'Dayanıklılık',      icon:'🏃', desc:'Kondisyon ve kardiyo'},
+        {val:'general',      label:'Genel Fitness',     icon:'⚡', desc:'Dengeli gelişim'},
+      ]
+    },
+    {
+      id: 'split',
+      question: 'Hangi program tipini tercih edersin?',
+      icon: '📐',
+      type: 'choice',
+      info: true,
+      options: [
+        {
+          val:'fullbody',
+          label:'Full Body',
+          icon:'🔄',
+          desc:'Her antrenmanda tüm vücudu çalıştır. Başlangıç ve orta seviye için ideal.',
+          detail:'Haftada 2-4 gün, her seanste squat+bench+row gibi büyük hareketler. Frekans yüksek, toparlanma kolay.'
+        },
+        {
+          val:'upper_lower',
+          label:'Upper / Lower',
+          icon:'⬆️',
+          desc:'Üst ve alt vücudu ayrı günlerde çalıştır. Dengeli gelişim sağlar.',
+          detail:'Pzt: Üst • Salı: Alt • Perş: Üst • Cum: Alt gibi. Hem hacim hem frekans dengeli.'
+        },
+        {
+          val:'ppl',
+          label:'Push Pull Legs',
+          icon:'🔁',
+          desc:'İtme / çekme / bacak günleri. Orta-ileri seviye için en popüler split.',
+          detail:'Push(göğüs-omuz-tris) / Pull(sırt-bicep) / Legs(bacak). Haftada 3-6 gün esnek kullanım.'
+        },
+        {
+          val:'brosplit',
+          label:'Bro Split',
+          icon:'💪',
+          desc:'Her gün tek kas grubu. Yüksek hacim, uzun toparlanma süresi.',
+          detail:'Pzt:Göğüs • Salı:Sırt • Çarş:Omuz • Perş:Kol • Cum:Bacak. Maksimum kas odağı.'
+        },
+      ]
+    },
+    {
+      id: 'level',
+      question: 'Fitness seviyeni nasıl tanımlarsın?',
+      icon: '📊',
+      type: 'choice',
+      options: [
+        {val:'beginner',     label:'Yeni Başlayan',     icon:'🌱', desc:'0-6 ay deneyim'},
+        {val:'intermediate', label:'Orta Seviye',       icon:'🌿', desc:'6 ay - 2 yıl'},
+        {val:'advanced',     label:'İleri Seviye',      icon:'🌳', desc:'2+ yıl deneyim'},
+      ]
+    },
+    {
+      id: 'days',
+      question: 'Haftada kaç gün antrenman yapabilirsin?',
+      icon: '📅',
+      type: 'choice',
+      options: [
+        {val:'2', label:'2 Gün', icon:'✌️', desc:'Minimum ama etkili'},
+        {val:'3', label:'3 Gün', icon:'🥉', desc:'En popüler seçenek'},
+        {val:'4', label:'4 Gün', icon:'🥈', desc:'Ciddi ilerleme'},
+        {val:'5', label:'5 Gün', icon:'🥇', desc:'Maksimum gelişim'},
+        {val:'6', label:'6 Gün', icon:'🏆', desc:'Elite seviye'},
+      ]
+    },
+    {
+      id: 'cardio',
+      question: 'Kardiyoya yaklaşımın ne?',
+      icon: '❤️',
+      type: 'choice',
+      options: [
+        {val:'none',          label:'Kardio Yok',          icon:'🚫', desc:'Sadece ağırlık antrenmanı'},
+        {val:'end_of_workout',label:'Antrenman Sonu',      icon:'🏃', desc:'Her seansin sonunda 10-15 dk'},
+        {val:'same_day_hiit', label:'Aynı Gün HIIT',       icon:'⚡', desc:'Antrenmanla aynı günde yoğun kardio'},
+        {val:'separate_days', label:'Ayrı Günlerde',       icon:'📅', desc:'Ağırlık ve kardio günleri ayrı'},
+        {val:'mixed',         label:'Karışık',             icon:'🔀', desc:'Hem ayrı gün hem antrenman sonu'},
+      ]
+    },
+    {
+      id: 'duration',
+      question: 'Antrenman başına ne kadar vakit ayırabilirsin?',
+      icon: '⏱️',
+      type: 'choice',
+      options: [
+        {val:'30', label:'30 Dakika', icon:'⚡', desc:'Yoğun ve kısa'},
+        {val:'45', label:'45 Dakika', icon:'🔥', desc:'Verimli orta süre'},
+        {val:'60', label:'1 Saat',    icon:'💪', desc:'Standart antrenman'},
+        {val:'90', label:'1.5 Saat',  icon:'🏆', desc:'Kapsamlı çalışma'},
+      ]
+    },
+    {
+      id: 'equipment',
+      question: 'Hangi ekipmanlara erişimin var?',
+      icon: '🏋️',
+      type: 'choice',
+      options: [
+        {val:'none',      label:'Ekipmansız',     icon:'🏠', desc:'Sadece vücut ağırlığı'},
+        {val:'minimal',   label:'Minimal',        icon:'🎽', desc:'Dumbbell ve direnç bandı'},
+        {val:'home_gym',  label:'Ev Jimleri',     icon:'🏡', desc:'Barbell, dumbbell, bench'},
+        {val:'full_gym',  label:'Tam Spor Salonu',icon:'🏟️', desc:'Her ekipmana erişim'},
+      ]
+    },
+    {
+      id: 'limitation',
+      question: 'Fiziksel bir kısıtlaman var mı?',
+      icon: '🩺',
+      type: 'choice',
+      options: [
+        {val:'none',     label:'Hayır, sorun yok', icon:'✅', desc:'Tüm hareketler uygun'},
+        {val:'back',     label:'Bel/Sırt Sorunu',  icon:'🔴', desc:'Alt sırt problemleri'},
+        {val:'knee',     label:'Diz Sorunu',       icon:'🟡', desc:'Diz eklem problemleri'},
+        {val:'shoulder', label:'Omuz Sorunu',      icon:'🟠', desc:'Omuz eklem problemleri'},
+      ]
+    },
+  ];
+
+  function renderProgram() {
+    const el = document.getElementById('programContent');
+    if (!currentUser.is_premium) {
+      el.innerHTML = premiumLock('Özel Program Oluşturucu');
+      return;
+    }
+
+    el.innerHTML = `
+      <div style="max-width:860px;">
+
+        <!-- Hazır Programlar -->
+        <div class="card" style="margin-bottom:1.5rem;">
+          <div class="card-header">
+            <div>
+              <div class="card-title">📋 Hazır Programlar</div>
+              <div style="font-size:0.8rem;color:var(--muted);margin-top:0.2rem;">Hedefine göre önceden hazırlanmış programlar</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="program-grid">
+              <div class="program-btn selected" id="goal-fat_loss" onclick="selectGoal('fat_loss')">
+                <div class="p-icon">🔥</div>
+                <div class="p-name">Yağ Yakma</div>
+                <div class="p-desc">HIIT ve kardio ağırlıklı program</div>
+              </div>
+              <div class="program-btn" id="goal-muscle_gain" onclick="selectGoal('muscle_gain')">
+                <div class="p-icon">💪</div>
+                <div class="p-name">Kas Geliştirme</div>
+                <div class="p-desc">Hypertrophy odaklı split</div>
+              </div>
+              <div class="program-btn" id="goal-general" onclick="selectGoal('general')">
+                <div class="p-icon">⚡</div>
+                <div class="p-name">Genel Fitness</div>
+                <div class="p-desc">Dengeli kuvvet ve kondisyon</div>
+              </div>
+            </div>
+            <button class="btn btn-surface" onclick="generateProgram()" style="margin-top:0.75rem;">Program Oluştur</button>
+          </div>
+        </div>
+
+        <!-- AI Kişisel Program -->
+        <div class="card" style="border-color:#7c5cfc40;background:linear-gradient(145deg,#7c5cfc06,var(--surface));">
+          <div class="card-header" style="border-color:#7c5cfc20;">
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+              <div style="width:40px;height:40px;background:var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">🤖</div>
+              <div>
+                <div class="card-title">Kişisel AI Program Oluştur</div>
+                <div style="font-size:0.8rem;color:var(--muted);margin-top:0.2rem;">Sorulara cevap ver, Claude sana özel program yazsın</div>
+              </div>
+            </div>
+            <button class="btn btn-accent" onclick="startWizard()" id="wizardStartBtn">✨ Başla</button>
+          </div>
+          <div id="wizardArea"></div>
+        </div>
+
+        <div id="programResult" style="margin-top:1.5rem;"></div>
+      </div>
+    `;
+    selectedGoal = 'fat_loss';
+  }
+
+  function selectGoal(goal) {
+    selectedGoal = goal;
+    document.querySelectorAll('.program-btn').forEach(b => b.classList.remove('selected'));
+    document.getElementById('goal-' + goal).classList.add('selected');
+  }
+
+  async function generateProgram() {
+    document.getElementById('programResult').innerHTML = `<div class="loading"><div class="spinner"></div> Program oluşturuluyor...</div>`;
+    const res = await fetch('/api/ai/program', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ goal: selectedGoal, days_per_week: 3 })
+    });
+    const data = await res.json();
+    renderProgramResult(data.program);
+  }
+
+  function startWizard() {
+    wizardAnswers = {};
+    wizardStep = 0;
+    document.getElementById('wizardStartBtn').style.display = 'none';
+    renderWizardStep();
+  }
+
+  function renderWizardStep() {
+    const area = document.getElementById('wizardArea');
+    if (wizardStep >= wizardQuestions.length) {
+      renderWizardSummary();
+      return;
+    }
+    const q = wizardQuestions[wizardStep];
+    const progress = Math.round((wizardStep / wizardQuestions.length) * 100);
+
+    area.innerHTML = `
+      <div style="padding:1.5rem;">
+        <!-- Progress -->
+        <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--muted);margin-bottom:0.5rem;">
+          <span>Adım ${wizardStep+1} / ${wizardQuestions.length}</span>
+          <span>${progress}%</span>
+        </div>
+        <div style="height:4px;background:var(--surface3);border-radius:10px;margin-bottom:1.5rem;">
+          <div style="height:100%;width:${progress}%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:10px;transition:width 0.4s;"></div>
+        </div>
+
+        <!-- Soru -->
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.2rem;">
+          <span style="font-size:1.5rem;">${q.icon}</span>
+          <div style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;">${q.question}</div>
+        </div>
+
+        <!-- Seçenekler -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(${q.id==='split'?'220':'170'}px,1fr));gap:0.75rem;margin-bottom:1.5rem;">
+          ${q.options.map(opt => `
+            <div class="wizard-opt" onclick="selectWizardOption('${q.id}','${opt.val}',this)"
+              style="background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:1rem;cursor:pointer;transition:all 0.2s;">
+              <div style="font-size:1.5rem;margin-bottom:0.5rem;">${opt.icon}</div>
+              <div style="font-weight:600;font-size:0.9rem;margin-bottom:0.3rem;">${opt.label}</div>
+              <div style="font-size:0.75rem;color:var(--muted);margin-bottom:${opt.detail?'0.5rem':'0'};">${opt.desc}</div>
+              ${opt.detail ? `<div style="font-size:0.72rem;color:#7c5cfc99;border-top:1px solid var(--border);padding-top:0.5rem;line-height:1.5;">${opt.detail}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+
+        <!-- Butonlar -->
+        <div style="display:flex;gap:0.75rem;">
+          ${wizardStep > 0 ? `<button class="btn btn-surface" onclick="wizardBack()">← Geri</button>` : ''}
+          <button class="btn btn-accent" id="wizardNextBtn" onclick="wizardNext()" disabled style="opacity:0.4;cursor:not-allowed;">
+            ${wizardStep === wizardQuestions.length - 1 ? '🤖 AI\'ye Gönder' : 'Devam →'}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  function selectWizardOption(qId, val, el) {
+    wizardAnswers[qId] = val;
+    document.querySelectorAll('.wizard-opt').forEach(o => {
+      o.style.borderColor = 'var(--border2)';
+      o.style.background = 'var(--surface2)';
+    });
+    el.style.borderColor = 'var(--accent)';
+    el.style.background = '#7c5cfc15';
+    const btn = document.getElementById('wizardNextBtn');
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+  }
+
+  function wizardNext() {
+    if (!wizardAnswers[wizardQuestions[wizardStep].id]) return;
+    wizardStep++;
+    renderWizardStep();
+  }
+
+  function wizardBack() {
+    wizardStep--;
+    renderWizardStep();
+  }
+
+  function renderWizardSummary() {
+    const area = document.getElementById('wizardArea');
+    const labels = {
+      goal:      {fat_loss:'Yağ Yakma',muscle_gain:'Kas Kazanma',endurance:'Dayanıklılık',general:'Genel Fitness'},
+      split:     {fullbody:'Full Body',upper_lower:'Upper/Lower',ppl:'Push Pull Legs',brosplit:'Bro Split'},
+      level:     {beginner:'Yeni Başlayan',intermediate:'Orta Seviye',advanced:'İleri Seviye'},
+      days:      {'2':'2 Gün','3':'3 Gün','4':'4 Gün','5':'5 Gün','6':'6 Gün'},
+      cardio:    {none:'Kardio Yok',end_of_workout:'Antrenman Sonu',same_day_hiit:'Aynı Gün HIIT',separate_days:'Ayrı Günler',mixed:'Karma'},
+      duration:  {'30':'30 dk','45':'45 dk','60':'1 Saat','90':'1.5 Saat'},
+      equipment: {none:'Ekipmansız',minimal:'Minimal',home_gym:'Ev Jimleri',full_gym:'Tam Salon'},
+      limitation:{none:'Kısıtlama Yok',back:'Bel Sorunu',knee:'Diz Sorunu',shoulder:'Omuz Sorunu'},
+    };
+
+    area.innerHTML = `
+      <div style="padding:1.5rem;">
+        <div style="font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;margin-bottom:1rem;">✅ Cevapların hazır — AI analiz edecek</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:1.5rem;">
+          ${Object.entries(wizardAnswers).map(([k,v]) => {
+            const lbl = labels[k]?.[v] || v;
+            return `<span style="background:var(--surface2);border:1px solid var(--border2);padding:0.3rem 0.8rem;border-radius:100px;font-size:0.8rem;color:var(--accent2);">${lbl}</span>`;
+          }).join('')}
+        </div>
+        <div style="display:flex;gap:0.75rem;">
+          <button class="btn btn-surface" onclick="startWizard()">↺ Yeniden Başla</button>
+          <button class="btn btn-accent" onclick="generateAICustomProgram()">
+            🤖 Kişisel Program Oluştur
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  async function generateAICustomProgram() {
+    const area = document.getElementById('wizardArea');
+    area.innerHTML = `
+      <div style="padding:2rem;text-align:center;">
+        <div style="font-size:2rem;margin-bottom:1rem;animation:spin 1s linear infinite;display:inline-block;">⚙️</div>
+        <div style="font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;margin-bottom:0.5rem;">AI programını oluşturuyor...</div>
+        <div style="color:var(--muted);font-size:0.85rem;">Cevapların analiz ediliyor, kişisel program yazılıyor</div>
+      </div>
+    `;
+
+    const u = currentUser;
+    const splitLabels = {
+      fullbody: 'Full Body (haftada her seanste tüm vücut)',
+      upper_lower: 'Upper/Lower Split (üst/alt ayrımı)',
+      ppl: 'Push Pull Legs Split',
+      brosplit: 'Bro Split (günlük tek kas grubu)',
+    };
+    const cardioLabels = {
+      none: 'Kardio yok',
+      end_of_workout: 'Her antrenmandan sonra 10-15 dk steady-state kardio',
+      same_day_hiit: 'Antrenmanla aynı günde HIIT (antrenman bittikten sonra veya sabah/akşam ayrı seanste)',
+      separate_days: 'Kardio ve ağırlık günleri tamamen ayrı',
+      mixed: 'Karma: bazı günler antrenman sonu steady-state, bazı günler ayrı kardio seansı',
+    };
+    const equipLabels = {
+      none: 'Sadece vücut ağırlığı (ekipman yok)',
+      minimal: 'Dumbbell seti ve direnç bandı',
+      home_gym: 'Barbell, dumbbell, bench ve temel ekipmanlar',
+      full_gym: 'Tam spor salonu (tüm makineler, kablo, barbell, dumbbell)',
+    };
+    const limitLabels = {
+      none: 'Fiziksel kısıtlama yok',
+      back: 'Bel/alt sırt problemi var — deadlift, heavy squat dikkatli yapılmalı',
+      knee: 'Diz problemi var — squat derinliği ve yüksek darbeli hareketler sınırlı',
+      shoulder: 'Omuz problemi var — overhead press ve wide-grip bench dikkatli',
+    };
+
+    const prompt = `Sen deneyimli bir kişisel fitness antrenörüsün. Aşağıdaki kullanıcı bilgileri ve tercihlere göre gerçekçi, bilimsel temelli ve tamamen kişiselleştirilmiş bir antrenman programı oluştur.
+
+KULLANICI PROFİLİ:
+- Yaş: ${u.age || 'belirtilmemiş'}
+- Cinsiyet: ${u.gender === 'male' ? 'Erkek' : u.gender === 'female' ? 'Kadın' : 'belirtilmemiş'}
+- Boy/Kilo: ${u.height || '?'} cm / ${u.current_weight || '?'} kg
+- Hedef kilo: ${u.goal_weight || 'belirtilmemiş'} kg
+- Aktivite seviyesi: ${u.activity_level || 'orta'}
+
+PROGRAM TERCİHLERİ:
+- Hedef: ${wizardAnswers.goal}
+- Program tipi: ${splitLabels[wizardAnswers.split] || wizardAnswers.split}
+- Seviye: ${wizardAnswers.level}
+- Haftada antrenman günü: ${wizardAnswers.days} gün
+- Kardio tercihi: ${cardioLabels[wizardAnswers.cardio] || wizardAnswers.cardio}
+- Antrenman süresi: ${wizardAnswers.duration} dakika
+- Ekipman: ${equipLabels[wizardAnswers.equipment] || wizardAnswers.equipment}
+- Fiziksel kısıtlama: ${limitLabels[wizardAnswers.limitation] || wizardAnswers.limitation}
+
+ÖNEMLİ KURALLAR:
+1. Program tipine SIKI SIKI uy. PPL seçildiyse push/pull/legs günleri olsun. Bro split seçildiyse günde tek kas grubu.
+2. Kardio tercihine göre hareket et — "aynı gün HIIT" seçildiyse kardioyu antrenman günlerine ekle, ayrı gün seçildiyse ayrı kardio günleri oluştur. "Kardio yok" seçildiyse hiç kardio koyma.
+3. Egzersizler seçilen ekipmana uygun olsun. Full gym seçilmişse barbell hareketleri, makine varyasyonları kullan. Ekipmansızsa sadece calisthenics.
+4. Fiziksel kısıtlama varsa o bölgeye yüklenen hareketlere alternatif sun.
+5. Seviyeye göre set/tekrar/ağırlık mantığı kur: başlangıç = düşük hacim yüksek frekans, ileri = periodizasyon, yüksek hacim.
+6. Gerçekçi egzersiz isimleri kullan (Türkçe veya uluslararası kabul görmüş isimler, ikisini karıştırma).
+7. Her egzersiz için kısa ama değerli teknik not ekle.
+
+SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
+{
+  "program_adi": "...",
+  "aciklama": "...",
+  "haftalik_ozet": "Bu programda haftada X gün... şeklinde açıklama",
+  "gunler": [
+    {
+      "gun": "Pazartesi",
+      "tip": "Push / Üst Vücut / Full Body vb",
+      "odak": "Göğüs, Omuz, Triceps",
+      "isitma": ["5 dk hafif koşu", "Omuz rotasyonları x10"],
+      "egzersizler": [
+        {
+          "ad": "Barbell Bench Press",
+          "set": 4,
+          "tekrar": "6-8",
+          "dinlenme": "90sn",
+          "not": "Kürek kemiklerini sıkıştır, bar göğüse değsin"
+        }
+      ],
+      "kardio": "Bu günkü kardio detayı (yoksa boş bırak)",
+      "soguma": ["Göğüs germe 30sn x2", "Omuz cross-body stretch"]
+    }
+  ],
+  "beslenme_ipuclari": ["...", "...", "..."],
+  "progressiyon": "Nasıl ağırlık/tekrar artırılacağına dair talimat",
+  "onemli_notlar": ["...", "..."]
+}`;
+
+    try {
+      const res = await fetch('/api/ai/custom-program', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: wizardAnswers })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        area.innerHTML = `<div style="padding:1.5rem;">
+          <div style="color:var(--red);margin-bottom:1rem;">⚠️ ${data.error || 'Bir hata oluştu'}</div>
+          ${data.error && data.error.includes('API') ? `
+            <div style="color:var(--muted);font-size:0.85rem;line-height:1.6;">
+              Groq API key geçersiz olabilir. console.groq.com'dan yeni key al.
+            </div>` : ''}
+          <button class="btn btn-surface" onclick="startWizard()" style="margin-top:1rem;">← Tekrar Dene</button>
+        </div>`;
+        return;
+      }
+
+      renderAICustomResult(data.program);
+
+    } catch (e) {
+      area.innerHTML = `<div style="padding:1.5rem;color:var(--red);">⚠️ Bağlantı hatası: ${e.message}
+        <br><button class="btn btn-surface" onclick="startWizard()" style="margin-top:1rem;">← Geri</button>
+      </div>`;
+    }
+  }
+
+  function renderAICustomResult(p) {
+    document.getElementById('wizardArea').innerHTML = '';
+    document.getElementById('wizardStartBtn').textContent = '✨ Yeni Program';
+    document.getElementById('wizardStartBtn').style.display = '';
+
+    document.getElementById('programResult').innerHTML = `
+      <div class="card" style="border-color:#7c5cfc40;">
+        <div class="card-header" style="border-color:#7c5cfc20;">
+          <div>
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;">
+              <span style="font-size:0.75rem;background:var(--accent);color:#fff;padding:0.2rem 0.6rem;border-radius:100px;font-weight:600;">🤖 AI TARAFINDAN OLUŞTURULDU</span>
+            </div>
+            <div class="card-title">${p.program_adi}</div>
+            <div style="font-size:0.85rem;color:var(--muted);margin-top:0.3rem;">${p.aciklama}</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div style="background:var(--surface2);border-radius:10px;padding:1rem;margin-bottom:1.5rem;font-size:0.9rem;line-height:1.6;border-left:3px solid var(--accent);">
+            ${p.haftalik_ozet}
+          </div>
+
+          ${p.gunler.map(gun => `
+            <div class="day-card" style="margin-bottom:1rem;">
+              <div class="day-header">
+                <div class="day-name">${gun.gun}</div>
+                <div class="day-focus">${gun.odak}</div>
+              </div>
+
+              ${gun.isitma?.length ? `
+                <div style="padding:0.6rem 1.2rem;background:#7c5cfc08;border-bottom:1px solid var(--border);">
+                  <div style="font-size:0.7rem;color:var(--muted);font-weight:600;letter-spacing:1px;margin-bottom:0.3rem;">ISINMA</div>
+                  <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                    ${gun.isitma.map(i => `<span style="font-size:0.8rem;color:var(--muted);">• ${i}</span>`).join('')}
+                  </div>
+                </div>` : ''}
+
+              <div class="exercise-row" style="background:var(--surface3);font-size:0.7rem;color:var(--muted);">
+                <div>Egzersiz</div>
+                <div style="text-align:center;">Set</div>
+                <div style="text-align:center;">Tekrar</div>
+                <div style="text-align:center;">Dinlenme</div>
+              </div>
+
+              ${gun.egzersizler.map(ex => `
+                <div class="exercise-row" style="flex-direction:column;align-items:flex-start;padding:0.8rem 1.2rem;">
+                  <div style="display:grid;grid-template-columns:1fr 80px 80px 70px;width:100%;align-items:center;">
+                    <div class="exercise-name">${ex.ad}</div>
+                    <div class="exercise-val" style="text-align:center;"><strong>${ex.set}</strong><span style="font-size:0.7rem;color:var(--muted);"> set</span></div>
+                    <div class="exercise-val" style="text-align:center;"><strong>${ex.tekrar}</strong></div>
+                    <div class="exercise-val" style="text-align:center;"><strong>${ex.dinlenme}</strong></div>
+                  </div>
+                  ${ex.not ? `<div style="font-size:0.75rem;color:var(--accent2);margin-top:0.3rem;">💡 ${ex.not}</div>` : ''}
+                </div>`).join('')}
+
+              ${gun.kardio ? `
+                <div style="padding:0.6rem 1.2rem;background:#ff4d6d08;border-top:1px solid var(--border);">
+                  <div style="font-size:0.7rem;color:#ff4d6d99;font-weight:600;letter-spacing:1px;margin-bottom:0.2rem;">KARDİO</div>
+                  <div style="font-size:0.82rem;color:var(--muted);">${gun.kardio}</div>
+                </div>` : ''}
+
+              ${gun.soguma?.length ? `
+                <div style="padding:0.6rem 1.2rem;background:#00e5a008;border-top:1px solid var(--border);">
+                  <div style="font-size:0.7rem;color:var(--muted);font-weight:600;letter-spacing:1px;margin-bottom:0.3rem;">SOĞUMA</div>
+                  <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                    ${gun.soguma.map(s => `<span style="font-size:0.8rem;color:var(--muted);">• ${s}</span>`).join('')}
+                  </div>
+                </div>` : ''}
+            </div>
+          `).join('')}
+
+          ${p.progressiyon ? `
+            <div style="background:#7c5cfc10;border:1px solid #7c5cfc30;border-radius:12px;padding:1rem;margin-top:1rem;">
+              <div style="font-weight:600;margin-bottom:0.5rem;font-size:0.9rem;color:var(--accent2);">📈 Progressiyon Planı</div>
+              <div style="font-size:0.85rem;color:var(--muted);line-height:1.6;">${p.progressiyon}</div>
+            </div>` : ''}
+
+          ${p.beslenme_ipuclari?.length ? `
+            <div class="card" style="margin-top:1rem;border-color:#00e5a030;background:#00e5a008;">
+              <div class="card-header" style="border-color:#00e5a020;"><div class="card-title">🥗 Beslenme İpuçları</div></div>
+              <div class="card-body">
+                ${p.beslenme_ipuclari.map(t => `
+                  <div style="display:flex;gap:0.6rem;padding:0.5rem 0;border-bottom:1px solid var(--border);font-size:0.88rem;">
+                    <span style="color:var(--green);flex-shrink:0;">→</span>${t}
+                  </div>`).join('')}
+              </div>
+            </div>` : ''}
+
+          ${p.onemli_notlar?.length ? `
+            <div style="background:#ffd16610;border:1px solid #ffd16630;border-radius:12px;padding:1rem;margin-top:1rem;">
+              <div style="font-weight:600;margin-bottom:0.6rem;font-size:0.9rem;">⚠️ Önemli Notlar</div>
+              ${p.onemli_notlar.map(n => `<div style="font-size:0.83rem;color:var(--muted);padding:0.3rem 0;">• ${n}</div>`).join('')}
+            </div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderProgramResult(p) {
+    document.getElementById('programResult').innerHTML = `
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">${p.name}</div>
+            <div style="font-size:0.8rem;color:var(--muted);margin-top:0.2rem;">${p.description}</div>
+          </div>
+        </div>
+        <div class="card-body">
+          ${p.days.map(day => `
+            <div class="day-card">
+              <div class="day-header">
+                <div class="day-name">${day.day}</div>
+                <div class="day-focus">${day.focus}</div>
+              </div>
+              <div class="exercise-row" style="background:var(--surface3);font-size:0.7rem;color:var(--muted);">
+                <div>Egzersiz</div><div style="text-align:center;">Set</div><div style="text-align:center;">Tekrar</div><div style="text-align:center;">Dinlenme</div>
+              </div>
+              ${day.exercises.map(ex => `
+                <div class="exercise-row">
+                  <div class="exercise-name">${ex.name}</div>
+                  <div class="exercise-val"><strong>${ex.sets}</strong>set</div>
+                  <div class="exercise-val"><strong>${ex.reps}</strong></div>
+                  <div class="exercise-val"><strong>${ex.rest}</strong></div>
+                </div>`).join('')}
+            </div>`).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  // ── Premium Page ──────────────────────────────────────────────────────────
+
+  function renderPremiumPage() {
+    const el = document.getElementById('premiumContent');
+    if (currentUser.is_premium) {
+      el.innerHTML = `
+        <div class="card" style="max-width: 500px; text-align: center;">
+          <div class="card-body">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">👑</div>
+            <div class="card-title">Premium Üyesiniz!</div>
+            <p style="color: var(--muted); margin-top: 0.75rem; font-size: 0.9rem;">Tüm premium özelliklere erişiminiz var. Sol menüden AI Analizi ve Program Oluştur özelliklerini kullanabilirsiniz.</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    el.innerHTML = `
+      <div style="max-width: 600px;">
+        <div class="card">
+          <div class="card-body">
+            <div style="font-size: 2rem; margin-bottom: 1rem;">👑</div>
+            <div class="card-title" style="font-size: 1.4rem; margin-bottom: 0.5rem;">FitPro Premium</div>
+            <p style="color: var(--muted); margin-bottom: 1.5rem; font-size: 0.9rem;">AI destekli analizler, gelişim grafikleri ve kişisel antrenman programı ile hedeflerine daha hızlı ulaş.</p>
+            <div style="margin-bottom: 1.5rem;">
+              ${['AI Program Analizi', 'Detaylı Gelişim Grafikleri', 'Özel Antrenman Programı', 'Haftalık Performans Raporu'].map(f =>
+                `<div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem 0;border-bottom:1px solid var(--border);font-size:0.9rem;"><span style="color:var(--green)">✓</span>${f}</div>`
+              ).join('')}
+            </div>
+            <button class="btn btn-accent" style="width: 100%; padding: 0.9rem; font-size: 1rem;" onclick="openModal('paymentModal')">Premium'a Geç — ₺99/ay</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ── Premium Lock ──────────────────────────────────────────────────────────
+
+  function premiumLock(feature) {
+    return `
+      <div class="card" style="max-width: 500px;">
+        <div class="premium-lock">
+          <div class="lock-icon">👑</div>
+          <div class="lock-title">${feature} — Premium</div>
+          <div class="lock-desc">Bu özellik Premium üyelere özeldir. Yapay zeka destekli analizler ve detaylı grafikler için Premium'a geçin.</div>
+          <button class="btn btn-accent" onclick="showPage('premium')">Premium'a Geç</button>
+        </div>
+      </div>
+    `;
+  }
+
+  // ── Add Weight ────────────────────────────────────────────────────────────
+
+  async function addWeight() {
+    const weight = parseFloat(document.getElementById('wWeight').value);
+    const date = document.getElementById('wDate').value || today;
+    const notes = document.getElementById('wNotes').value;
+
+    if (!weight) { alert('Kilo değeri girin'); return; }
+
+    await fetch('/api/weight', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ weight, date, notes })
+    });
+
+    closeModal('weightModal');
+    await loadWeights();
+    await loadStats();
+    document.getElementById('wWeight').value = '';
+    document.getElementById('wNotes').value = '';
+  }
+
+  async function deleteWeight(id) {
+    await fetch('/api/weight/' + id, { method: 'DELETE' });
+    await loadWeights();
+    await loadStats();
+  }
+
+  // ── Add Workout ───────────────────────────────────────────────────────────
+
+  async function addWorkout() {
+    const name = document.getElementById('woName').value;
+    if (!name) { alert('Antrenman adı girin'); return; }
+
+    await fetch('/api/workouts', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        name,
+        workout_type: document.getElementById('woType').value,
+        date: document.getElementById('woDate').value || today,
+        duration: parseInt(document.getElementById('woDuration').value) || 0,
+        calories_burned: parseInt(document.getElementById('woCalories').value) || 0,
+        notes: document.getElementById('woNotes').value
+      })
+    });
+
+    closeModal('workoutModal');
+    await loadWorkouts();
+    await loadStats();
+    document.getElementById('woName').value = '';
+    document.getElementById('woDuration').value = '';
+    document.getElementById('woCalories').value = '';
+    document.getElementById('woNotes').value = '';
+  }
+
+  async function deleteWorkout(id) {
+    await fetch('/api/workouts/' + id, { method: 'DELETE' });
+    await loadWorkouts();
+    await loadStats();
+  }
+
+  // ── Payment ───────────────────────────────────────────────────────────────
+
+  function selectPlan(plan) {
+    selectedPlan = plan;
+    document.querySelectorAll('.plan-opt').forEach(o => o.classList.remove('selected'));
+    document.getElementById('plan' + (plan === 'monthly' ? 'Monthly' : 'Yearly')).classList.add('selected');
+  }
+
+  async function processPayment() {
+    const btn = document.getElementById('payBtn');
+    btn.disabled = true;
+    btn.textContent = 'İşleniyor...';
+
+    const createRes = await fetch('/api/payment/create', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ plan: selectedPlan })
+    });
+    const createData = await createRes.json();
+
+    await fetch('/api/payment/confirm', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ payment_id: createData.payment_id })
+    });
+
+    document.getElementById('paymentForm').style.display = 'none';
+    document.getElementById('paymentSuccess').classList.add('show');
+    currentUser.is_premium = true;
+  }
+
+  function formatCard(input) {
+    let val = input.value.replace(/\D/g, '').substring(0, 16);
+    input.value = val.replace(/(.{4})/g, '$1 ').trim();
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  function formatDate(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' });
+  }
+
+  function formatDateShort(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' });
+  }
+
+  function typeLabel(type) {
+    return { strength: 'Güç', cardio: 'Kardio', yoga: 'Yoga', other: 'Diğer' }[type] || type;
+  }
+
+  function openModal(id) {
+    if (id === 'weightModal') document.getElementById('wDate').value = today;
+    if (id === 'workoutModal') document.getElementById('woDate').value = today;
+    if (id === 'foodModal') document.getElementById('foodDate').value = today;
+    if (id === 'measureModal') document.getElementById('mDate').value = today;
+    document.getElementById(id).classList.add('active');
+  }
+
+  function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+  document.querySelectorAll('.modal-overlay').forEach(m => {
+    m.addEventListener('click', function(e) {
+      if (e.target === this) this.classList.remove('active');
+    });
+  });
+
+  async function logout() {
+    await fetch('/api/logout', { method: 'POST' });
+    window.location.href = '/';
+  }
+
+  // ── Profile ───────────────────────────────────────────────────────────────
+
+  function renderProfile() {
+    const el = document.getElementById('profileContent');
+    const u = currentUser;
+    const joinDate = new Date(u.created_at || Date.now()).toLocaleDateString('tr-TR', {year:'numeric', month:'long'});
+    const isPremium = u.is_premium;
+
+    // BMI hesapla
+    let bmiHtml = '';
+    if (u.height && u.current_weight) {
+      const bmi = u.current_weight / Math.pow(u.height / 100, 2);
+      const bmiRound = bmi.toFixed(1);
+      let cat, col;
+      if (bmi < 18.5) { cat = 'Zayıf'; col = '#60a5fa'; }
+      else if (bmi < 25) { cat = 'Normal'; col = 'var(--green)'; }
+      else if (bmi < 30) { cat = 'Fazla Kilolu'; col = 'var(--amber)'; }
+      else { cat = 'Obez'; col = 'var(--red)'; }
+      bmiHtml = `
+        <div class="bmi-display">
+          <div class="bmi-circle" style="border-color:${col}">
+            <div class="bmi-num" style="color:${col}">${bmiRound}</div>
+            <div class="bmi-label">BMI</div>
+          </div>
+          <div>
+            <div class="bmi-category" style="color:${col}">${cat}</div>
+            <div class="bmi-desc">Boy: ${u.height} cm · Kilo: ${u.current_weight} kg</div>
+          </div>
+        </div>`;
+    } else {
+      bmiHtml = `<div style="color:var(--muted);font-size:0.85rem;padding:1rem 0;">Boy ve kilo bilgisi girildiğinde BMI hesaplanacak.</div>`;
+    }
+
+    const actLevels = [
+      {val:'sedentary', icon:'🪑', label:'Hareketsiz'},
+      {val:'light', icon:'🚶', label:'Az Aktif'},
+      {val:'moderate', icon:'🏃', label:'Orta'},
+      {val:'active', icon:'💪', label:'Aktif'},
+      {val:'very_active', icon:'🔥', label:'Çok Aktif'},
+    ];
+
+    el.innerHTML = `
+      <div class="profile-header">
+        <div class="profile-avatar-wrap">
+          <div class="profile-avatar" id="profileAvatarDisplay">
+            ${u.photo ? `<img src="${u.photo}" alt="avatar">` : `<span>${u.username[0].toUpperCase()}</span>`}
+          </div>
+          <label class="avatar-upload-btn" for="photoInput" title="Fotoğraf değiştir">📷</label>
+          <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="handlePhotoUpload(this)">
+        </div>
+        <div class="profile-info">
+          <div class="profile-name">${u.username}</div>
+          <div class="profile-email">${u.email}</div>
+          <div class="profile-badges">
+            <span class="profile-badge badge-member">📅 ${joinDate}'dan beri üye</span>
+            ${isPremium
+              ? `<span class="profile-badge badge-premium-tag">👑 Premium Üye</span>`
+              : `<span class="profile-badge badge-free">Ücretsiz Plan</span>`}
+            ${u.gender === 'male' ? `<span class="profile-badge badge-free">👨 Erkek</span>` : u.gender === 'female' ? `<span class="profile-badge badge-free">👩 Kadın</span>` : ''}
+          </div>
+        </div>
+      </div>
+
+      <div class="profile-grid">
+        <!-- Sol: Kişisel Bilgiler -->
+        <div>
+          <div class="card" style="margin-bottom:1.5rem;">
+            <div class="card-header"><div class="card-title">📊 Vücut İstatistikleri</div></div>
+            <div class="card-body">
+              <div class="info-grid">
+                <div class="info-item">
+                  <div class="info-item-label">BOY</div>
+                  <div class="info-item-val">${u.height ? u.height + ' cm' : '—'}</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-item-label">HEDEF KİLO</div>
+                  <div class="info-item-val">${u.goal_weight ? u.goal_weight + ' kg' : '—'}</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-item-label">YAŞ</div>
+                  <div class="info-item-val">${u.age ? u.age : '—'}</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-item-label">BMI</div>
+                  <div class="info-item-val" id="bmiVal">${u.height && u.current_weight ? (u.current_weight / Math.pow(u.height/100,2)).toFixed(1) : '—'}</div>
+                </div>
+              </div>
+              ${bmiHtml}
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><div class="card-title">✏️ Bilgileri Düzenle</div></div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Boy (cm)</label>
+                  <input type="number" id="editHeight" value="${u.height || ''}" placeholder="175">
+                </div>
+                <div class="form-group">
+                  <label>Yaş</label>
+                  <input type="number" id="editAge" value="${u.age || ''}" placeholder="25">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Hedef Kilo (kg)</label>
+                  <input type="number" id="editGoalWeight" value="${u.goal_weight || ''}" placeholder="70">
+                </div>
+                <div class="form-group">
+                  <label>Cinsiyet</label>
+                  <select id="editGender">
+                    <option value="male" ${u.gender==='male'?'selected':''}>Erkek</option>
+                    <option value="female" ${u.gender==='female'?'selected':''}>Kadın</option>
+                    <option value="other" ${u.gender==='other'?'selected':''}>Diğer</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Aktivite Seviyesi</label>
+                <div class="activity-bar">
+                  ${actLevels.map(a => `
+                    <div class="act-opt ${(u.activity_level||'moderate')===a.val?'selected':''}" onclick="selectActivity('${a.val}')">
+                      <span class="act-icon">${a.icon}</span>${a.label}
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+              <button class="save-btn" onclick="saveProfile()">💾 Kaydet</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sağ: Hedefler & Özet -->
+        <div>
+          <div class="card" style="margin-bottom:1.5rem;">
+            <div class="card-header"><div class="card-title">🎯 Hedeflerim</div></div>
+            <div class="card-body">
+              <div class="goal-item">
+                <div class="goal-icon">⚖️</div>
+                <div>
+                  <div class="goal-label">HEDEF KİLO</div>
+                  <div class="goal-val">${u.goal_weight ? u.goal_weight + ' kg' : 'Belirlenmedi'}</div>
+                </div>
+              </div>
+              <div class="goal-item">
+                <div class="goal-icon">📉</div>
+                <div>
+                  <div class="goal-label">VERİLECEK KİLO</div>
+                  <div class="goal-val" id="weightToLose">—</div>
+                </div>
+              </div>
+              <div class="goal-item">
+                <div class="goal-icon">🔥</div>
+                <div>
+                  <div class="goal-label">GÜNLÜK KALORİ HEDEFİ (TDEE)</div>
+                  <div class="goal-val" id="tdeeVal">—</div>
+                </div>
+              </div>
+              <div class="goal-item">
+                <div class="goal-icon">📅</div>
+                <div>
+                  <div class="goal-label">TOPLAM ANTRENMAN</div>
+                  <div class="goal-val">${workoutData.length} seans</div>
+                </div>
+              </div>
+              <div class="goal-item">
+                <div class="goal-icon">⚡</div>
+                <div>
+                  <div class="goal-label">TOPLAM YAKILAN KALORİ</div>
+                  <div class="goal-val">${workoutData.reduce((a,b)=>a+(b.calories_burned||0),0).toLocaleString()} kcal</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><div class="card-title">🔐 Şifre Değiştir</div></div>
+            <div class="card-body">
+              <div class="form-group">
+                <label>Mevcut Şifre</label>
+                <input type="password" id="oldPw" placeholder="••••••••">
+              </div>
+              <div class="form-group">
+                <label>Yeni Şifre</label>
+                <input type="password" id="newPw" placeholder="••••••••">
+              </div>
+              <div class="form-group">
+                <label>Yeni Şifre (Tekrar)</label>
+                <input type="password" id="newPw2" placeholder="••••••••">
+              </div>
+              <button class="save-btn" onclick="changePassword()">🔐 Şifreyi Güncelle</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // TDEE hesapla
+    calcTDEE();
+    // Verilen kilo
+    if (u.goal_weight && u.current_weight) {
+      const diff = u.current_weight - u.goal_weight;
+      document.getElementById('weightToLose').textContent = diff > 0 ? diff.toFixed(1) + ' kg' : 'Hedefe ulaşıldı! 🎉';
+    }
+  }
+
+  let selectedActivity = 'moderate';
+
+  function selectActivity(val) {
+    selectedActivity = val;
+    document.querySelectorAll('.act-opt').forEach(el => {
+      el.classList.toggle('selected', el.onclick.toString().includes(`'${val}'`));
+    });
+    // Daha güvenilir seçim
+    document.querySelectorAll('.act-opt').forEach(el => el.classList.remove('selected'));
+    event.currentTarget.classList.add('selected');
+  }
+
+  function calcTDEE() {
+    const u = currentUser;
+    if (!u.height || !u.age || !u.current_weight) return;
+    const isMale = u.gender !== 'female';
+    // Mifflin-St Jeor
+    let bmr = isMale
+      ? 10 * u.current_weight + 6.25 * u.height - 5 * u.age + 5
+      : 10 * u.current_weight + 6.25 * u.height - 5 * u.age - 161;
+    const multipliers = {sedentary:1.2, light:1.375, moderate:1.55, active:1.725, very_active:1.9};
+    const tdee = Math.round(bmr * (multipliers[u.activity_level || 'moderate'] || 1.55));
+    const el = document.getElementById('tdeeVal');
+    if (el) el.textContent = tdee.toLocaleString() + ' kcal/gün';
+  }
+
+  function handlePhotoUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const dataUrl = e.target.result;
+      // Avatar güncelle
+      document.getElementById('profileAvatarDisplay').innerHTML = `<img src="${dataUrl}" alt="avatar">`;
+      document.getElementById('userAvatar').style.background = 'none';
+      document.getElementById('userAvatar').innerHTML = `<img src="${dataUrl}" style="width:36px;height:36px;border-radius:10px;object-fit:cover;">`;
+      currentUser.photo = dataUrl;
+      showToast('📷 Fotoğraf güncellendi!');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function saveProfile() {
+    const payload = {
+      height: parseFloat(document.getElementById('editHeight').value) || null,
+      age: parseInt(document.getElementById('editAge').value) || null,
+      goal_weight: parseFloat(document.getElementById('editGoalWeight').value) || null,
+      gender: document.getElementById('editGender').value,
+      activity_level: document.querySelector('.act-opt.selected')?.textContent?.trim() ? 
+        ['sedentary','light','moderate','active','very_active'].find(v => 
+          document.querySelector(`.act-opt.selected`)?.getAttribute('onclick')?.includes(v)
+        ) || selectedActivity : selectedActivity
+    };
+    const res = await fetch('/api/profile', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      Object.assign(currentUser, payload);
+      showToast('✅ Profil kaydedildi!');
+      renderProfile();
+    }
+  }
+
+  async function changePassword() {
+    const oldPw = document.getElementById('oldPw').value;
+    const newPw = document.getElementById('newPw').value;
+    const newPw2 = document.getElementById('newPw2').value;
+    if (!oldPw || !newPw) { showToast('⚠️ Şifre alanlarını doldurun', true); return; }
+    if (newPw !== newPw2) { showToast('⚠️ Yeni şifreler eşleşmiyor', true); return; }
+    const res = await fetch('/api/change-password', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({old_password: oldPw, new_password: newPw})
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showToast('🔐 Şifre güncellendi!');
+      document.getElementById('oldPw').value = '';
+      document.getElementById('newPw').value = '';
+      document.getElementById('newPw2').value = '';
+    } else {
+      showToast('⚠️ ' + data.error, true);
+    }
+  }
+
+  function showToast(msg, isError=false) {
+    let t = document.getElementById('toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'toast';
+      t.className = 'toast';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.borderColor = isError ? 'var(--red)' : 'var(--green)';
+    t.style.color = isError ? 'var(--red)' : 'var(--green)';
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  // ── Nutrition ─────────────────────────────────────────────────────────────
+
+  let foodData = [];
+
+  async function loadFoods() {
+    const res = await fetch('/api/nutrition');
+    foodData = await res.json();
+  }
+
+  async function addFood() {
+    const name = document.getElementById('foodName').value;
+    if (!name) { showToast('⚠️ Yemek adı girin', true); return; }
+    await fetch('/api/nutrition', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        name, meal: document.getElementById('foodMeal').value,
+        calories: parseInt(document.getElementById('foodKcal').value) || 0,
+        protein: parseFloat(document.getElementById('foodProtein').value) || 0,
+        carbs: parseFloat(document.getElementById('foodCarb').value) || 0,
+        fat: parseFloat(document.getElementById('foodFat').value) || 0,
+        date: document.getElementById('foodDate').value || today
+      })
+    });
+    closeModal('foodModal');
+    document.getElementById('foodName').value = '';
+    ['foodKcal','foodProtein','foodCarb','foodFat'].forEach(id => document.getElementById(id).value = '');
+    await loadFoods();
+    renderNutrition();
+    showToast('🍎 Yemek eklendi!');
+  }
+
+  async function deleteFood(id) {
+    await fetch('/api/nutrition/' + id, {method:'DELETE'});
+    await loadFoods(); renderNutrition();
+  }
+
+  function renderNutrition() {
+    const el = document.getElementById('nutritionContent');
+    if (!currentUser.is_premium) { el.innerHTML = premiumLock('Kalori & Makro Takibi'); return; }
+    const todayFoods = foodData.filter(f => f.date === today);
+    const totalKcal = todayFoods.reduce((a,b)=>a+(b.calories||0),0);
+    const totalProtein = todayFoods.reduce((a,b)=>a+(b.protein||0),0);
+    const totalCarb = todayFoods.reduce((a,b)=>a+(b.carbs||0),0);
+    const totalFat = todayFoods.reduce((a,b)=>a+(b.fat||0),0);
+
+    const tdee = (() => {
+      const u = currentUser;
+      if (!u.height || !u.age || !u.current_weight) return 2000;
+      const isMale = u.gender !== 'female';
+      const bmr = isMale ? 10*u.current_weight+6.25*u.height-5*u.age+5 : 10*u.current_weight+6.25*u.height-5*u.age-161;
+      const m = {sedentary:1.2,light:1.375,moderate:1.55,active:1.725,very_active:1.9};
+      return Math.round(bmr*(m[u.activity_level||'moderate']||1.55));
+    })();
+
+    const pct = Math.min(100, Math.round(totalKcal/tdee*100));
+    const circum = 2*Math.PI*46;
+    const offset = circum - pct/100*circum;
+    const ringColor = pct > 100 ? 'var(--red)' : pct > 80 ? 'var(--amber)' : 'var(--green)';
+
+    const mealLabels = {breakfast:'☀️ Kahvaltı', lunch:'🌤️ Öğle', dinner:'🌙 Akşam', snack:'🍪 Ara Öğün'};
+    const meals = ['breakfast','lunch','dinner','snack'];
+
+    el.innerHTML = `
+      <div class="grid-2" style="margin-bottom:1.5rem;">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Bugünkü Kalori</div></div>
+          <div class="card-body">
+            <div class="calorie-ring-wrap">
+              <div class="calorie-ring">
+                <svg viewBox="0 0 100 100" width="110" height="110">
+                  <circle fill="none" stroke="var(--surface3)" stroke-width="10" cx="50" cy="50" r="46"/>
+                  <circle fill="none" stroke="${ringColor}" stroke-width="10" stroke-linecap="round"
+                    cx="50" cy="50" r="46"
+                    stroke-dasharray="${circum}" stroke-dashoffset="${offset}"/>
+                </svg>
+                <div class="calorie-center">
+                  <div class="calorie-num">${totalKcal}</div>
+                  <div class="calorie-sub">/ ${tdee} kcal</div>
+                </div>
+              </div>
+              <div style="flex:1;">
+                <div class="macro-bar-wrap">
+                  <div class="macro-bar-label"><span>Protein</span><span style="color:var(--accent2)">${totalProtein.toFixed(0)}g</span></div>
+                  <div class="macro-bar"><div class="macro-bar-fill macro-protein" style="width:${Math.min(100,totalProtein/150*100)}%"></div></div>
+                </div>
+                <div class="macro-bar-wrap">
+                  <div class="macro-bar-label"><span>Karbonhidrat</span><span style="color:var(--amber)">${totalCarb.toFixed(0)}g</span></div>
+                  <div class="macro-bar"><div class="macro-bar-fill macro-carb" style="width:${Math.min(100,totalCarb/250*100)}%"></div></div>
+                </div>
+                <div class="macro-bar-wrap">
+                  <div class="macro-bar-label"><span>Yağ</span><span style="color:var(--green)">${totalFat.toFixed(0)}g</span></div>
+                  <div class="macro-bar"><div class="macro-bar-fill macro-fat" style="width:${Math.min(100,totalFat/80*100)}%"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Haftalık Kalori</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="nutritionChart"></canvas></div></div>
+        </div>
+      </div>
+
+      ${meals.map(meal => {
+        const items = todayFoods.filter(f => f.meal === meal);
+        return `
+          <div class="card" style="margin-bottom:1rem;">
+            <div class="card-header">
+              <div class="card-title">${mealLabels[meal]}</div>
+              <div style="font-size:0.8rem;color:var(--muted)">${items.reduce((a,b)=>a+(b.calories||0),0)} kcal</div>
+            </div>
+            ${items.length ? items.map(f => `
+              <div class="food-row">
+                <div style="flex:1;">
+                  <div class="food-name">${f.name}</div>
+                  <div class="food-macros">
+                    <span>P: ${f.protein}g</span>
+                    <span>K: ${f.carbs}g</span>
+                    <span>Y: ${f.fat}g</span>
+                  </div>
+                </div>
+                <div class="food-kcal">${f.calories}</div>
+                <button class="log-del" onclick="deleteFood(${f.id})">✕</button>
+              </div>
+            `).join('') : `<div class="empty" style="padding:1.5rem;"><div class="empty-text">Kayıt yok</div></div>`}
+          </div>`;
+      }).join('')}
+    `;
+
+    // Weekly chart
+    setTimeout(() => {
+      const ctx = document.getElementById('nutritionChart');
+      if (!ctx) return;
+      const days = Array.from({length:7},(_,i)=>{
+        const d = new Date(); d.setDate(d.getDate()-6+i);
+        return d.toISOString().split('T')[0];
+      });
+      const vals = days.map(d => foodData.filter(f=>f.date===d).reduce((a,b)=>a+(b.calories||0),0));
+      new Chart(ctx, {
+        type:'bar',
+        data:{labels:days.map(d=>formatDateShort(d)),datasets:[{data:vals,backgroundColor:'#ffd16640',borderColor:'var(--amber)',borderWidth:2,borderRadius:6}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'#ffffff0a'},ticks:{color:'#8888aa',font:{size:11}}},y:{grid:{color:'#ffffff0a'},ticks:{color:'#8888aa',font:{size:11}}}}}
+      });
+    }, 100);
+  }
+
+  // ── Measurements ──────────────────────────────────────────────────────────
+
+  let measureData = [];
+
+  async function loadMeasurements() {
+    const res = await fetch('/api/measurements');
+    measureData = await res.json();
+  }
+
+  async function addMeasurement() {
+    const payload = {
+      waist: parseFloat(document.getElementById('mWaist').value)||null,
+      chest: parseFloat(document.getElementById('mChest').value)||null,
+      hip: parseFloat(document.getElementById('mHip').value)||null,
+      arm: parseFloat(document.getElementById('mArm').value)||null,
+      thigh: parseFloat(document.getElementById('mThigh').value)||null,
+      neck: parseFloat(document.getElementById('mNeck').value)||null,
+      date: document.getElementById('mDate').value || today
+    };
+    await fetch('/api/measurements', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    closeModal('measureModal');
+    ['mWaist','mChest','mHip','mArm','mThigh','mNeck'].forEach(id=>document.getElementById(id).value='');
+    await loadMeasurements(); renderMeasurements();
+    showToast('📏 Ölçü kaydedildi!');
+  }
+
+  async function deleteMeasurement(id) {
+    await fetch('/api/measurements/'+id,{method:'DELETE'});
+    await loadMeasurements(); renderMeasurements();
+  }
+
+  function renderMeasurements() {
+    const el = document.getElementById('measurementsContent');
+    if (!currentUser.is_premium) { el.innerHTML = premiumLock('Vücut Ölçüleri Takibi'); return; }
+
+    const isFemale = currentUser.gender === 'female';
+    const latest = measureData.length ? measureData[measureData.length-1] : {};
+    const prev   = measureData.length > 1 ? measureData[measureData.length-2] : {};
+
+    // Kadın öncelikli sıra: kalça, bel, bacak, boyun, göğüs, kol
+    // Erkek öncelikli sıra: kol, bel, boyun, göğüs, kalça, bacak
+    const allMetrics = isFemale ? [
+      {key:'hip',   label:'Kalça',  icon:'🩳'},
+      {key:'waist', label:'Bel',    icon:'👕'},
+      {key:'thigh', label:'Bacak',  icon:'🦵'},
+      {key:'neck',  label:'Boyun',  icon:'🧣'},
+      {key:'chest', label:'Göğüs', icon:'🫁'},
+      {key:'arm',   label:'Kol',    icon:'💪'},
+    ] : [
+      {key:'arm',   label:'Kol',    icon:'💪'},
+      {key:'waist', label:'Bel',    icon:'👕'},
+      {key:'neck',  label:'Boyun',  icon:'🧣'},
+      {key:'chest', label:'Göğüs', icon:'🫁'},
+      {key:'hip',   label:'Kalça',  icon:'🩳'},
+      {key:'thigh', label:'Bacak',  icon:'🦵'},
+    ];
+
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1.2rem;">
+        <span style="font-size:1.1rem;">${isFemale ? '👩' : '👨'}</span>
+        <span style="color:var(--muted);font-size:0.85rem;">${isFemale ? 'Kadın ölçü öncelikleri' : 'Erkek ölçü öncelikleri'} — tüm ölçüler kaydedilir ve grafikte gösterilir</span>
+      </div>
+      <div class="measure-grid" style="margin-bottom:1.5rem;">
+        ${allMetrics.map(m => {
+          const val = latest[m.key];
+          const pval = prev[m.key];
+          const diff = val && pval ? (val - pval).toFixed(1) : null;
+          const diffColor = parseFloat(diff) < 0 ? 'var(--green)' : 'var(--red)';
+          const diffHtml = diff ? `<div class="measure-change" style="color:${diffColor}">${parseFloat(diff)>0?'+':''}${diff} cm</div>` : '';
+          return `<div class="measure-card">
+            <div class="measure-icon">${m.icon}</div>
+            <div class="measure-val">${val ? val + ' cm' : '—'}</div>
+            <div class="measure-label">${m.label}</div>
+            ${diffHtml}
+          </div>`;
+        }).join('')}
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><div class="card-title">📈 Tüm Ölçüler Trendi</div></div>
+          <div class="card-body"><div class="chart-wrap" style="height:240px;"><canvas id="measureChart"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">📋 Geçmiş Kayıtlar</div></div>
+          <div style="max-height:320px;overflow-y:auto;">
+            ${measureData.length ? [...measureData].reverse().map(m => `
+              <div class="log-row">
+                <div class="log-date">${formatDate(m.date)}</div>
+                <div class="log-main">
+                  <div style="display:flex;gap:0.6rem;flex-wrap:wrap;font-size:0.78rem;color:var(--muted);">
+                    ${m.waist  ? `<span>Bel:<strong style="color:var(--text);margin-left:3px">${m.waist}</strong></span>` : ''}
+                    ${m.chest  ? `<span>Göğüs:<strong style="color:var(--text);margin-left:3px">${m.chest}</strong></span>` : ''}
+                    ${m.hip    ? `<span>Kalça:<strong style="color:var(--text);margin-left:3px">${m.hip}</strong></span>` : ''}
+                    ${m.arm    ? `<span>Kol:<strong style="color:var(--text);margin-left:3px">${m.arm}</strong></span>` : ''}
+                    ${m.thigh  ? `<span>Bacak:<strong style="color:var(--text);margin-left:3px">${m.thigh}</strong></span>` : ''}
+                    ${m.neck   ? `<span>Boyun:<strong style="color:var(--text);margin-left:3px">${m.neck}</strong></span>` : ''}
+                  </div>
+                </div>
+                <button class="log-del" onclick="deleteMeasurement(${m.id})">✕</button>
+              </div>`).join('')
+            : `<div class="empty"><div class="empty-icon">📏</div><div class="empty-text">Henüz ölçü yok</div></div>`}
+          </div>
+        </div>
+      </div>
+    `;
+
+    setTimeout(() => {
+      const ctx = document.getElementById('measureChart');
+      if (!ctx || !measureData.length) return;
+      const allDs = [
+        {key:'waist', label:'Bel',    color:'#7c5cfc'},
+        {key:'chest', label:'Göğüs', color:'#00e5a0'},
+        {key:'hip',   label:'Kalça',  color:'#ffd166'},
+        {key:'arm',   label:'Kol',    color:'#ff4d6d'},
+        {key:'thigh', label:'Bacak',  color:'#60a5fa'},
+        {key:'neck',  label:'Boyun',  color:'#f59e0b'},
+      ];
+      const datasets = allDs
+        .filter(d => measureData.some(m => m[d.key]))
+        .map(d => ({
+          label: d.label,
+          data: measureData.map(m => m[d.key] || null),
+          borderColor: d.color,
+          tension: 0.4, pointRadius: 4, fill: false, borderWidth: 2, spanGaps: true,
+        }));
+      new Chart(ctx, {
+        type: 'line',
+        data: { labels: measureData.map(m => formatDateShort(m.date)), datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { color: '#8888aa', font: { size: 11 }, padding: 10, usePointStyle: true } } },
+          scales: {
+            x: { grid: { color: '#ffffff0a' }, ticks: { color: '#8888aa', font: { size: 10 } } },
+            y: { grid: { color: '#ffffff0a' }, ticks: { color: '#8888aa', font: { size: 10 } } }
+          }
+        }
+      });
+    }, 100);
+  }
+
+  // ── Badges ────────────────────────────────────────────────────────────────
+
+  function renderBadges() {
+    const el = document.getElementById('badgesContent');
+    const wCount = workoutData.length;
+    const wDays = new Set(workoutData.map(w=>w.date)).size;
+    const hasWeight = weightData.length > 0;
+    const weightChange = weightData.length>1 ? weightData[0].weight - weightData[weightData.length-1].weight : 0;
+    const totalKcal = workoutData.reduce((a,b)=>a+(b.calories_burned||0),0);
+
+    // Streak hesapla
+    let streak = 0;
+    for (let i=0; i<7; i++) {
+      const d = new Date(); d.setDate(d.getDate()-i);
+      const ds = d.toISOString().split('T')[0];
+      if (workoutData.some(w=>w.date===ds)) streak++;
+      else break;
+    }
+
+    const allBadges = [
+      {id:'first_workout', icon:'🏋️', name:'İlk Adım', desc:'İlk antrenmanını tamamladın', earned: wCount >= 1},
+      {id:'week_warrior', icon:'📅', name:'Hafta Savaşçısı', desc:'7 farklı günde antrenman yaptın', earned: wDays >= 7},
+      {id:'streak_3', icon:'🔥', name:'Ateş Seri', desc:'3 gün üst üste antrenman', earned: streak >= 3},
+      {id:'first_log', icon:'⚖️', name:'Ölçüm Ustası', desc:'İlk kilo kaydını girdin', earned: hasWeight},
+      {id:'weight_loss_1', icon:'📉', name:'İlk Kilo', desc:'1 kg verdин', earned: weightChange >= 1},
+      {id:'weight_loss_5', icon:'🎯', name:'5 Kilo Club', desc:'5 kg verdin', earned: weightChange >= 5},
+      {id:'burn_1000', icon:'⚡', name:'1000 Kcal', desc:'Toplam 1000 kcal yaktın', earned: totalKcal >= 1000},
+      {id:'burn_10000', icon:'💥', name:'10K Kcal', desc:'Toplam 10.000 kcal yaktın', earned: totalKcal >= 10000},
+      {id:'workout_10', icon:'💪', name:'10 Antrenman', desc:'10 antrenman tamamladın', earned: wCount >= 10},
+      {id:'workout_50', icon:'🏆', name:'Elit Atlet', desc:'50 antrenman tamamladın', earned: wCount >= 50},
+      {id:'premium_user', icon:'👑', name:'Premium Üye', desc:'Premium üyeliğe geçtin', earned: currentUser.is_premium},
+      {id:'consistency', icon:'🌟', name:'Tutarlılık', desc:'30 gün boyunca aktif oldun', earned: wDays >= 30},
+    ];
+
+    const earnedCount = allBadges.filter(b=>b.earned).length;
+
+    el.innerHTML = `
+      <div class="badges-summary">
+        <div>
+          <div class="badges-count">${earnedCount}</div>
+          <div style="color:var(--muted);font-size:0.85rem;margin-top:0.3rem;">/ ${allBadges.length} rozet kazanıldı</div>
+        </div>
+        <div style="flex:1;">
+          <div style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">Harika gidiyorsun! 🎉</div>
+          <div style="color:var(--muted);font-size:0.85rem;">Daha fazla antrenman yap, hedeflerine ulaş ve yeni rozetler kazan.</div>
+          <div style="margin-top:0.75rem;">
+            <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--muted);margin-bottom:0.3rem;"><span>İlerleme</span><span>${Math.round(earnedCount/allBadges.length*100)}%</span></div>
+            <div style="height:6px;background:var(--surface3);border-radius:10px;overflow:hidden;">
+              <div style="height:100%;width:${Math.round(earnedCount/allBadges.length*100)}%;background:linear-gradient(90deg,var(--amber),#ff9f1c);border-radius:10px;transition:width 0.8s ease;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="badges-grid">
+        ${allBadges.map(b=>`
+          <div class="badge-card ${b.earned?'earned':'locked'}">
+            <div class="badge-icon-wrap">${b.icon}</div>
+            <div class="badge-name">${b.name}</div>
+            <div class="badge-desc">${b.desc}</div>
+            ${b.earned ? `<div class="badge-earned-tag">✓ Kazanıldı</div>` : `<div class="badge-locked-tag">🔒 Kilitli</div>`}
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  init();
+</script>
+</body>
+</html>
