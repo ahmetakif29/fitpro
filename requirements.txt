@@ -1,0 +1,3 @@
+Flask
+gunicorn
+# veritabanı kütüphanen (psycopg2-binary, flask-sqlalchemy vs.)
