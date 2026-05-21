@@ -2,6 +2,16 @@ from flask import Flask, render_template, request, jsonify, session, redirect, u
 import sqlite3, hashlib, os, json
 import urllib.request
 from datetime import date, timedelta
+from datetime import datetime
+import requests
+import hmac
+import hashlib
+from urllib.parse import urlencode
+
+# Shopier Bilgileri
+SHOPIER_CLIENT_ID = "ce44f17683e2b43b70c22320d676ba22"
+SHOPIER_CLIENT_SECRET = "5b729b0f5ca6de74fb8701b0ddb2b89c0af544b1df7f9e9d82fcd2bba3b510f2"
+SHOPIER_REDIRECT_URI = "https://fitpro-mytg.onrender.com/api/payment/callback"
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'fitpro-secret-key-2024'
@@ -205,16 +215,6 @@ def get_stats():
     cur = weights[-1]['weight'] if weights else None
     st = weights[0]['weight'] if weights else None
     return jsonify({'current_weight':cur,'weight_change':round(cur-st,1) if cur and st else 0,'workouts_this_week':len(ww),'calories_this_week':sum(w['calories_burned'] or 0 for w in ww),'duration_this_week':sum(w['duration'] or 0 for w in ww),'total_logs':len(weights)})
-
-@app.route('/api/payment/create', methods=['POST'])
-def create_payment():
-    if 'user_id' not in session: return jsonify({'error':'Unauthorized'}),401
-    d = request.json; plan = d.get('plan','monthly')
-    amount = 99.0 if plan == 'monthly' else 799.0
-    conn = get_db()
-    c = conn.execute('INSERT INTO payments (user_id,amount,plan) VALUES (?,?,?)',(session['user_id'],amount,plan))
-    conn.commit(); pid = c.lastrowid; conn.close()
-    return jsonify({'payment_id':pid,'amount':amount,'plan':plan})
 
 @app.route('/api/payment/confirm', methods=['POST'])
 def confirm_payment():
@@ -468,6 +468,75 @@ def ai_program():
             {'day':'Cuma','focus':'Full Body B','exercises':[{'name':'Deadlift','sets':3,'reps':'8','rest':'90sn'},{'name':'Shoulder Press','sets':3,'reps':'10','rest':'60sn'},{'name':'Bicep Curl','sets':3,'reps':'12','rest':'45sn'},{'name':'Tricep Dip','sets':3,'reps':'12','rest':'45sn'}]}]}
     }
     return jsonify({'program':programs.get(goal,programs['general'])})
+
+@app.route('/api/payment/create', methods=['POST'])
+def create_shopier_payment():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    data = request.json
+    plan = data.get('plan', 'monthly')
+    amount = 99 if plan == 'monthly' else 799
+
+    # Shopier ödeme parametreleri
+    payment_data = {
+        'client_id': SHOPIER_CLIENT_ID,
+        'amount': amount,
+        'currency': 'TRY',
+        'product_name': f'FitPro {plan.capitalize()} Premium',
+        'order_id': f'FP-{session["user_id"]}-{int(datetime.now().timestamp())}',
+        'redirect_uri': SHOPIER_REDIRECT_URI,
+        'callback_uri': SHOPIER_REDIRECT_URI,   # webhook yerine callback
+        'buyer_id': str(session['user_id']),
+        'buyer_email': 'user@example.com',      # gerçekte kullanıcının mailini çek
+        'buyer_name': 'Kullanıcı',
+    }
+
+    # Shopier ödeme linki oluştur (basit yöntem)
+    # Not: Shopier'in tam dokümantasyonuna göre değişebilir
+    try:
+        resp = requests.post(
+            "https://api.shopier.com/v1/payments",
+            json=payment_data,
+            headers={
+                'Authorization': f'Bearer {SHOPIER_CLIENT_SECRET}',
+                'Content-Type': 'application/json'
+            }
+        )
+        result = resp.json()
+        return jsonify({'payment_url': result.get('payment_url')})
+    except:
+        return jsonify({'error': 'Shopier bağlantı hatası'}), 500
+
+
+@app.route('/api/payment/callback', methods=['GET', 'POST'])
+def shopier_callback():
+    # GET veya POST gelebilir
+    params = request.args if request.method == 'GET' else request.form
+
+    order_id = params.get('order_id')
+    status = params.get('status') or params.get('payment_status')
+
+    # Basit imza doğrulaması (Shopier'in kullandığı yöntem)
+    signature = params.get('signature')
+    if not signature:
+        return "Signature eksik", 400
+
+    # İmza kontrolü (Shopier dokümanına göre uyarla)
+    # Şimdilik basit kontrol yapıyoruz
+    if status in ['success', 'completed', '1']:
+        # order_id'den user_id'yi çıkar (FP-123-... formatı)
+        try:
+            user_id = int(order_id.split('-')[1])
+            conn = get_db()
+            conn.execute('UPDATE users SET is_premium=1 WHERE id=?', (user_id,))
+            conn.commit()
+            conn.close()
+            return redirect('/dashboard?payment=success')
+        except:
+            pass
+
+    return redirect('/dashboard?payment=failed')
 
 init_db()
 

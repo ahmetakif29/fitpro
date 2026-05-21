@@ -1314,9 +1314,14 @@
         </div>
       </div>
 
-      <button class="btn btn-accent" style="width: 100%; padding: 0.9rem; font-size: 1rem;" onclick="processPayment()" id="payBtn">
-        Ödemeyi Tamamla
-      </button>
+      <button 
+  class="btn btn-accent" 
+  style="width: 100%; padding: 0.9rem; font-size: 1rem;"
+  onclick="startPremiumPayment(selectedPlan)"
+  id="payBtn"
+>
+  Shopier ile Güvenli Öde
+</button>
       <p style="text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 0.8rem;">
         🔒 256-bit SSL şifrelemesi ile güvenli ödeme
       </p>
@@ -1861,6 +1866,34 @@
     document.querySelectorAll('.program-btn').forEach(b => b.classList.remove('selected'));
     document.getElementById('goal-' + goal).classList.add('selected');
   }
+
+  // ====================== SHOPIER ÖDEME ======================
+async function startPremiumPayment(plan = 'monthly') {
+    if (!currentUser) {
+        showToast('Önce giriş yapmalısın', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/payment/create', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ plan })
+        });
+
+        const data = await res.json();
+
+        if (data.payment_url) {
+            showToast('Ödeme sayfasına yönlendiriliyorsun...');
+            window.location.href = data.payment_url;
+        } else {
+            showToast(data.error || 'Ödeme başlatılamadı', 'error');
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('Bağlantı hatası', 'error');
+    }
+}
 
   async function generateProgram() {
     document.getElementById('programResult').innerHTML = `<div class="loading"><div class="spinner"></div> Program oluşturuluyor...</div>`;
