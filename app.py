@@ -1,10 +1,25 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-import sqlite3, hashlib, os, json
+import sqlite3, hashlib, os, json, hmac, base64, random
 from datetime import date, timedelta, datetime
 import requests
 
 # ====================== SHOPIER AYARLARI ======================
-SHOPIER_API_KEY = "ce44f17683e2b43b70c22320d676ba22"
+SHOPIER_API_KEY = os.environ.get('SHOPIER_API_KEY', '')
+SHOPIER_API_SECRET = os.environ.get('SHOPIER_API_SECRET', '')
+SHOPIER_PAT = os.environ.get('SHOPIER_PAT', '')
+SHOPIER_WEBHOOK_TOKEN = os.environ.get('SHOPIER_WEBHOOK_TOKEN', '')
+SHOPIER_OSB_USERNAME = os.environ.get('SHOPIER_OSB_USERNAME', '')
+SHOPIER_OSB_PASSWORD = os.environ.get('SHOPIER_OSB_PASSWORD', '')
+SHOPIER_PRODUCT_URL = os.environ.get(
+    'SHOPIER_PRODUCT_URL',
+    'https://www.shopier.com/fit_pro/47386919'
+)
+SHOPIER_PAYMENT_URL = 'https://www.shopier.com/ShowProduct/api_pay4.php'
+SHOPIER_CALLBACK_URL = os.environ.get(
+    'SHOPIER_CALLBACK_URL',
+    'https://fitpro-mytg.onrender.com/api/payment/callback'
+)
+SHOPIER_API_BASE = 'https://api.shopier.com/v1'
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'fitpro-secret-key-2024'
@@ -51,6 +66,20 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL, amount REAL NOT NULL, plan TEXT,
             status TEXT DEFAULT 'pending', created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS pending_checkouts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            email TEXT NOT NULL,
+            plan TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            shopier_order_id TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS processed_shopier_orders (
+            shopier_order_id TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            processed_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
     ''')
     # Eski DB'ye eksik kolonları ekle (migration)
@@ -470,7 +499,124 @@ def ai_program():
     }
     return jsonify({'program':programs.get(goal,programs['general'])})
 
-# ====================== SHOPIER ÖDEME ======================
+# ====================== SHOPIER ÖDEME (otomatik webhook + OSB) ======================
+def _shopier_signature(random_nr, order_id, amount, currency=0):
+    data = f"{random_nr}{order_id}{amount}{currency}"
+    digest = hmac.new(
+        SHOPIER_API_SECRET.encode('utf-8'),
+        data.encode('utf-8'),
+        hashlib.sha256
+    ).digest()
+    return base64.b64encode(digest).decode('utf-8')
+
+
+def _verify_shopier_callback(params):
+    random_nr = params.get('random_nr')
+    order_id = params.get('platform_order_id')
+    signature = params.get('signature')
+    if not all([random_nr, order_id, signature, SHOPIER_API_SECRET]):
+        return False
+    expected = hmac.new(
+        SHOPIER_API_SECRET.encode('utf-8'),
+        f"{random_nr}{order_id}".encode('utf-8'),
+        hashlib.sha256
+    ).digest()
+    try:
+        received = base64.b64decode(signature)
+    except Exception:
+        return False
+    return hmac.compare_digest(received, expected)
+
+
+def _order_already_processed(shopier_order_id):
+    conn = get_db()
+    row = conn.execute(
+        'SELECT shopier_order_id FROM processed_shopier_orders WHERE shopier_order_id=?',
+        (str(shopier_order_id),)
+    ).fetchone()
+    conn.close()
+    return row is not None
+
+
+def activate_premium_from_payment(email=None, user_id=None, shopier_order_id=None):
+    """Ödeme sonrası premium aç (e-posta veya user_id ile)."""
+    if shopier_order_id and _order_already_processed(shopier_order_id):
+        return False
+
+    conn = get_db()
+    user = None
+    if user_id:
+        user = conn.execute('SELECT id, email FROM users WHERE id=?', (user_id,)).fetchone()
+    elif email:
+        user = conn.execute(
+            'SELECT id, email FROM users WHERE lower(trim(email))=lower(trim(?))',
+            (email,)
+        ).fetchone()
+
+    if not user:
+        conn.close()
+        print(f"Shopier: kullanıcı bulunamadı email={email} user_id={user_id}")
+        return False
+
+    uid = user['id']
+    conn.execute('UPDATE users SET is_premium=1 WHERE id=?', (uid,))
+    conn.execute(
+        "UPDATE pending_checkouts SET status='completed', shopier_order_id=? "
+        "WHERE user_id=? AND status='pending'",
+        (str(shopier_order_id) if shopier_order_id else None, uid)
+    )
+    if shopier_order_id:
+        conn.execute(
+            'INSERT OR IGNORE INTO processed_shopier_orders (shopier_order_id, user_id) VALUES (?,?)',
+            (str(shopier_order_id), uid)
+        )
+    conn.commit()
+    conn.close()
+    print(f"Shopier: premium aktif user_id={uid} order={shopier_order_id}")
+    return True
+
+
+def _process_shopier_order_via_api(order_id):
+    if not SHOPIER_PAT:
+        return False
+    try:
+        r = requests.get(
+            f'{SHOPIER_API_BASE}/orders/{order_id}',
+            headers={'Authorization': f'Bearer {SHOPIER_PAT}', 'Accept': 'application/json'},
+            timeout=20
+        )
+        if r.status_code != 200:
+            print(f"Shopier API order {order_id}: {r.status_code}")
+            return False
+        order = r.json()
+        if order.get('paymentStatus') not in (None, 'paid'):
+            return False
+        shipping = order.get('shippingInfo') or {}
+        billing = order.get('billingInfo') or {}
+        email = shipping.get('email') or billing.get('email')
+        if not email:
+            return False
+        return activate_premium_from_payment(email=email, shopier_order_id=str(order_id))
+    except Exception as e:
+        print(f"Shopier API hata: {e}")
+        return False
+
+
+def _create_pending_checkout(user_id, email, plan):
+    conn = get_db()
+    conn.execute(
+        "UPDATE pending_checkouts SET status='expired' "
+        "WHERE user_id=? AND status='pending'",
+        (user_id,)
+    )
+    conn.execute(
+        'INSERT INTO pending_checkouts (user_id, email, plan) VALUES (?,?,?)',
+        (user_id, email, plan)
+    )
+    conn.commit()
+    conn.close()
+
+
 @app.route('/api/payment/create', methods=['POST'])
 def create_shopier_payment():
     if 'user_id' not in session:
@@ -478,56 +624,186 @@ def create_shopier_payment():
 
     data = request.get_json(silent=True) or {}
     plan = data.get('plan', 'monthly')
-    amount = 99 if plan == 'monthly' else 799
 
-    order_id = f"FP-{session['user_id']}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    conn = get_db()
+    user = conn.execute(
+        'SELECT id, username, email FROM users WHERE id=?',
+        (session['user_id'],)
+    ).fetchone()
+    conn.close()
+    if not user:
+        return jsonify({'error': 'Kullanıcı bulunamadı'}), 404
 
-    payload = {
-        "api_key": SHOPIER_API_KEY,
-        "order_id": order_id,
-        "amount": str(amount),
-        "currency": "TRY",
-        "product_name": f"FitPro Premium - {plan.capitalize()}",
-        "buyer_name": "FitPro Kullanıcısı",
-        "buyer_email": "user@fitpro.com",
-        "redirect_url": "https://fitpro-mytg.onrender.com/dashboard?payment=success",
-        "callback_url": "https://fitpro-mytg.onrender.com/api/payment/callback"
-    }
+    email = user['email']
+    _create_pending_checkout(user['id'], email, plan)
+
+    # Eski modül API (API_SECRET varsa) — platform_order_id ile doğrudan eşleşme
+    if SHOPIER_API_SECRET and SHOPIER_API_KEY:
+        amount = 99 if plan == 'monthly' else 799
+        username = user['username'] or 'Kullanici'
+        name_parts = username.split(' ', 1)
+        order_id = f"FP-{session['user_id']}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        random_nr = random.randint(100000, 999999)
+        form_fields = {
+            'API_key': SHOPIER_API_KEY,
+            'website_index': '1',
+            'platform_order_id': order_id,
+            'product_name': f'FitPro Premium - {plan.capitalize()}',
+            'product_type': '1',
+            'total_order_value': str(amount),
+            'currency': '0',
+            'platform': '0',
+            'is_in_frame': '0',
+            'current_language': '0',
+            'modul_version': '1.0.4',
+            'random_nr': str(random_nr),
+            'signature': _shopier_signature(random_nr, order_id, amount),
+            'callback': SHOPIER_CALLBACK_URL,
+            'buyer_name': name_parts[0],
+            'buyer_surname': name_parts[1] if len(name_parts) > 1 else 'Kullanici',
+            'buyer_email': email,
+            'buyer_account_age': '0',
+            'buyer_id_nr': str(session['user_id']),
+            'buyer_phone': '5555555555',
+            'billing_address': 'Turkiye',
+            'billing_city': 'Istanbul',
+            'billing_country': 'Turkey',
+            'billing_postcode': '34000',
+            'shipping_address': 'Turkiye',
+            'shipping_city': 'Istanbul',
+            'shipping_country': 'Turkey',
+            'shipping_postcode': '34000',
+        }
+        return jsonify({
+            'success': True,
+            'mode': 'form',
+            'payment_url': SHOPIER_PAYMENT_URL,
+            'form_fields': form_fields,
+            'email': email,
+        })
+
+    # Varsayılan: Shopier ürün sayfasına yönlendir + webhook/OSB ile otomatik premium
+    return jsonify({
+        'success': True,
+        'mode': 'redirect',
+        'redirect_url': SHOPIER_PRODUCT_URL,
+        'email': email,
+        'message': (
+            'Ödeme sırasında Shopier\'da FitPro hesabınızdaki e-postayı kullanın: '
+            f'{email}'
+        ),
+    })
+
+
+@app.route('/api/payment/status')
+def payment_status():
+    """Ödeme sonrası premium açıldı mı — frontend polling."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    conn = get_db()
+    u = conn.execute(
+        'SELECT is_premium FROM users WHERE id=?',
+        (session['user_id'],)
+    ).fetchone()
+    pending = conn.execute(
+        "SELECT id FROM pending_checkouts WHERE user_id=? AND status='pending' "
+        'ORDER BY id DESC LIMIT 1',
+        (session['user_id'],)
+    ).fetchone()
+    conn.close()
+    return jsonify({
+        'is_premium': bool(u and u['is_premium']),
+        'pending_checkout': pending is not None,
+    })
+
+
+@app.route('/api/shopier/osb', methods=['POST'])
+def shopier_osb_webhook():
+    """
+    Shopier OSB (Ek Özellikler > Sipariş Bildirimi).
+    Bildirim URL: https://fitpro-mytg.onrender.com/api/shopier/osb
+    """
+    res = request.form.get('res') or request.values.get('res')
+    sig = request.form.get('hash') or request.values.get('hash')
+    if not res or not sig:
+        return 'missing', 400
+
+    if SHOPIER_OSB_USERNAME and SHOPIER_OSB_PASSWORD:
+        expected = hmac.new(
+            SHOPIER_OSB_PASSWORD.encode('utf-8'),
+            (res + SHOPIER_OSB_USERNAME).encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(expected, sig):
+            print('Shopier OSB: imza geçersiz')
+            return 'unauthorized', 401
 
     try:
-        response = requests.post("https://www.shopier.com/ShowProduct/api", data=payload, timeout=20)
-        
-        print("Shopier Response:", response.text)  # Log için
-
-        if response.status_code == 200 and "http" in response.text.lower():
-            return jsonify({
-                "success": True,
-                "payment_url": response.text.strip()
-            })
-        else:
-            return jsonify({"error": "Shopier şu anda yanıt veremiyor. Tekrar deneyin."}), 400
-
+        payload = json.loads(base64.b64decode(res).decode('utf-8'))
     except Exception as e:
-        print("Shopier Hatası:", str(e))
-        return jsonify({"error": "Bağlantı hatası oluştu"}), 500
+        print(f'Shopier OSB decode hata: {e}')
+        return 'bad data', 400
+
+    if str(payload.get('istest', '0')) == '1':
+        print('Shopier OSB: test siparişi atlandı')
+        return 'success', 200
+
+    email = payload.get('email')
+    order_id = payload.get('orderid') or payload.get('order_id')
+    if email:
+        activate_premium_from_payment(email=email, shopier_order_id=order_id)
+    return 'success', 200
+
+
+@app.route('/api/shopier/webhook', methods=['POST'])
+def shopier_rest_webhook():
+    """
+    Shopier REST webhook (PAT ile kayıt — order.created).
+    URL: https://fitpro-mytg.onrender.com/api/shopier/webhook
+    """
+    body_raw = request.get_data()
+    sig = request.headers.get('Shopier-Signature', '')
+
+    if SHOPIER_WEBHOOK_TOKEN and sig:
+        expected = hmac.new(
+            SHOPIER_WEBHOOK_TOKEN.encode('utf-8'),
+            body_raw,
+            hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(expected, sig):
+            print('Shopier webhook: imza geçersiz')
+            return '', 401
+
+    data = request.get_json(silent=True) or {}
+    order_id = (
+        data.get('id')
+        or data.get('orderId')
+        or (data.get('data') or {}).get('id')
+        or (data.get('order') or {}).get('id')
+    )
+    if order_id:
+        _process_shopier_order_via_api(order_id)
+    return '', 200
 
 
 @app.route('/api/payment/callback', methods=['POST'])
 def shopier_callback():
-    try:
-        order_id = request.form.get('order_id')
-        status = request.form.get('status')
+    """Eski ShowProduct modül callback (API_SECRET varsa)."""
+    params = request.form
+    if not _verify_shopier_callback(params):
+        return 'ERROR', 400
 
-        if status == 'success' and order_id:
+    order_id = params.get('platform_order_id')
+    status = params.get('status')
+
+    if status == 'success' and order_id:
+        try:
             user_id = int(order_id.split('-')[1])
-            conn = get_db()
-            conn.execute('UPDATE users SET is_premium = 1 WHERE id = ?', (user_id,))
-            conn.commit()
-            conn.close()
-            return "OK", 200
-    except:
-        pass
-    return "ERROR", 400
+            activate_premium_from_payment(user_id=user_id, shopier_order_id=order_id)
+            return 'OK', 200
+        except Exception:
+            pass
+    return 'ERROR', 400
 
 init_db()
 
