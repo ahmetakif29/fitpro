@@ -1293,25 +1293,12 @@
         </div>
       </div>
 
-      <div class="payment-form">
-        <div class="form-group">
-          <label>Kart Üzerindeki İsim</label>
-          <input type="text" id="cardName" placeholder="Ad Soyad">
-        </div>
-        <div class="form-group">
-          <label>Kart Numarası</label>
-          <input type="text" id="cardNumber" placeholder="4242 4242 4242 4242" maxlength="19" oninput="formatCard(this)">
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Son Kullanma Tarihi</label>
-            <input type="text" id="cardExpiry" placeholder="AA/YY" maxlength="5">
-          </div>
-          <div class="form-group">
-            <label>CVV</label>
-            <input type="text" id="cardCVV" placeholder="123" maxlength="3">
-          </div>
-        </div>
+      <div class="payment-form" style="background: rgba(103,0,255,0.08); border-radius: 12px; padding: 1rem; margin-bottom: 1rem;">
+        <p style="font-size: 0.85rem; color: var(--muted); line-height: 1.5; margin: 0;">
+          Ödeme <strong>Shopier</strong> sayfasında güvenle yapılır. Ödeme sonrası premium hesabınıza
+          <strong>otomatik</strong> tanımlanır (birkaç saniye sürebilir).
+        </p>
+        <p id="paymentEmailHint" style="font-size: 0.85rem; color: var(--amber); margin: 0.75rem 0 0;"></p>
       </div>
 
       <button 
@@ -1342,6 +1329,44 @@
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
+  function applyPremiumUnlocked() {
+    currentUser.is_premium = true;
+    document.getElementById('userPlan').innerHTML = '<span class="premium-crown">👑</span> Premium';
+    sessionStorage.removeItem('fitpro_payment_pending');
+    showToast('Premium aktif! Tüm özellikler açıldı.', 'success');
+    closeModal('paymentModal');
+    const successEl = document.getElementById('paymentSuccess');
+    if (successEl) successEl.classList.add('show');
+    renderPremiumPage();
+  }
+
+  let paymentPollTimer = null;
+  function startPaymentPolling() {
+    if (paymentPollTimer) return;
+    let attempts = 0;
+    const maxAttempts = 60;
+    paymentPollTimer = setInterval(async () => {
+      attempts++;
+      try {
+        const res = await fetch('/api/payment/status');
+        const data = await res.json();
+        if (data.is_premium) {
+          clearInterval(paymentPollTimer);
+          paymentPollTimer = null;
+          applyPremiumUnlocked();
+          return;
+        }
+        if (attempts >= maxAttempts) {
+          clearInterval(paymentPollTimer);
+          paymentPollTimer = null;
+          showToast('Ödeme henüz onaylanmadı. Birkaç dakika sonra sayfayı yenileyin.', 'error');
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }, 3000);
+  }
+
   async function init() {
     const res = await fetch('/api/me');
     if (!res.ok) { window.location.href = '/'; return; }
@@ -1353,6 +1378,16 @@
     document.getElementById('userPlan').innerHTML = currentUser.is_premium
       ? '<span class="premium-crown">👑</span> Premium'
       : 'Ücretsiz';
+
+    const emailHint = document.getElementById('paymentEmailHint');
+    if (emailHint) {
+      emailHint.textContent = 'Shopier\'da bu e-postayı kullanın: ' + (currentUser.email || '');
+    }
+
+    if (sessionStorage.getItem('fitpro_payment_pending') === '1' && !currentUser.is_premium) {
+      showToast('Ödeme kontrol ediliyor...');
+      startPaymentPolling();
+    }
 
     await loadStats();
     await loadWeights();
@@ -1868,10 +1903,32 @@
   }
 
   // ====================== SHOPIER ÖDEME ======================
+function submitShopierForm(paymentUrl, formFields) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = paymentUrl;
+    form.style.display = 'none';
+    Object.entries(formFields).forEach(([key, value]) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+}
+
 async function startPremiumPayment(plan = 'monthly') {
     if (!currentUser) {
         showToast('Önce giriş yapmalısın', 'error');
         return;
+    }
+
+    const payBtn = document.getElementById('payBtn');
+    if (payBtn) {
+        payBtn.disabled = true;
+        payBtn.textContent = 'Yönlendiriliyor...';
     }
 
     try {
@@ -1883,15 +1940,32 @@ async function startPremiumPayment(plan = 'monthly') {
 
         const data = await res.json();
 
-        if (data.payment_url) {
-            showToast('Ödeme sayfasına yönlendiriliyorsun...');
-            window.location.href = data.payment_url;
-        } else {
-            showToast(data.error || 'Ödeme başlatılamadı', 'error');
+        if (data.mode === 'redirect' && data.redirect_url) {
+            sessionStorage.setItem('fitpro_payment_pending', '1');
+            showToast(data.message || 'Shopier\'a yönlendiriliyorsun...');
+            window.location.href = data.redirect_url;
+            return;
+        }
+
+        if (data.payment_url && data.form_fields) {
+            sessionStorage.setItem('fitpro_payment_pending', '1');
+            showToast('Shopier ödeme sayfasına yönlendiriliyorsun...');
+            submitShopierForm(data.payment_url, data.form_fields);
+            return;
+        }
+
+        showToast(data.error || 'Ödeme başlatılamadı', 'error');
+        if (payBtn) {
+            payBtn.disabled = false;
+            payBtn.textContent = 'Shopier ile Güvenli Öde';
         }
     } catch (e) {
         console.error(e);
         showToast('Bağlantı hatası', 'error');
+        if (payBtn) {
+            payBtn.disabled = false;
+            payBtn.textContent = 'Shopier ile Güvenli Öde';
+        }
     }
 }
 
