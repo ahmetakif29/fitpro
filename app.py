@@ -1,22 +1,23 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import sqlite3, hashlib, os, json
-import urllib.request
-from datetime import date, timedelta
-from datetime import datetime
+from datetime import date, timedelta, datetime
 import requests
-import hmac
-import hashlib
-from urllib.parse import urlencode
 
-# Shopier Bilgileri
-SHOPIER_CLIENT_ID = "ce44f17683e2b43b70c22320d676ba22"
-SHOPIER_CLIENT_SECRET = "5b729b0f5ca6de74fb8701b0ddb2b89c0af544b1df7f9e9d82fcd2bba3b510f2"
-SHOPIER_REDIRECT_URI = "https://fitpro-mytg.onrender.com/api/payment/callback"
+# ====================== SHOPIER AYARLARI ======================
+SHOPIER_API_KEY = "ce44f17683e2b43b70c22320d676ba22"
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'fitpro-secret-key-2024'
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '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')
 DB_PATH = os.path.join(os.path.dirname(__file__), 'fitpro.db')
+
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def hash_pw(pw):
+    return hashlib.sha256(pw.encode()).hexdigest()
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -469,74 +470,64 @@ def ai_program():
     }
     return jsonify({'program':programs.get(goal,programs['general'])})
 
+# ====================== SHOPIER ÖDEME ======================
 @app.route('/api/payment/create', methods=['POST'])
 def create_shopier_payment():
     if 'user_id' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return jsonify({'error': 'Önce giriş yapmalısın'}), 401
 
-    data = request.json
+    data = request.get_json(silent=True) or {}
     plan = data.get('plan', 'monthly')
     amount = 99 if plan == 'monthly' else 799
 
-    # Shopier ödeme parametreleri
-    payment_data = {
-        'client_id': SHOPIER_CLIENT_ID,
-        'amount': amount,
-        'currency': 'TRY',
-        'product_name': f'FitPro {plan.capitalize()} Premium',
-        'order_id': f'FP-{session["user_id"]}-{int(datetime.now().timestamp())}',
-        'redirect_uri': SHOPIER_REDIRECT_URI,
-        'callback_uri': SHOPIER_REDIRECT_URI,   # webhook yerine callback
-        'buyer_id': str(session['user_id']),
-        'buyer_email': 'user@example.com',      # gerçekte kullanıcının mailini çek
-        'buyer_name': 'Kullanıcı',
+    order_id = f"FP-{session['user_id']}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+    payload = {
+        "api_key": SHOPIER_API_KEY,
+        "order_id": order_id,
+        "amount": str(amount),
+        "currency": "TRY",
+        "product_name": f"FitPro Premium - {plan.capitalize()}",
+        "buyer_name": "FitPro Kullanıcısı",
+        "buyer_email": "user@fitpro.com",
+        "redirect_url": "https://fitpro-mytg.onrender.com/dashboard?payment=success",
+        "callback_url": "https://fitpro-mytg.onrender.com/api/payment/callback"
     }
 
-    # Shopier ödeme linki oluştur (basit yöntem)
-    # Not: Shopier'in tam dokümantasyonuna göre değişebilir
     try:
-        resp = requests.post(
-            "https://api.shopier.com/v1/payments",
-            json=payment_data,
-            headers={
-                'Authorization': f'Bearer {SHOPIER_CLIENT_SECRET}',
-                'Content-Type': 'application/json'
-            }
-        )
-        result = resp.json()
-        return jsonify({'payment_url': result.get('payment_url')})
-    except:
-        return jsonify({'error': 'Shopier bağlantı hatası'}), 500
+        response = requests.post("https://www.shopier.com/ShowProduct/api", data=payload, timeout=20)
+        
+        print("Shopier Response:", response.text)  # Log için
+
+        if response.status_code == 200 and "http" in response.text.lower():
+            return jsonify({
+                "success": True,
+                "payment_url": response.text.strip()
+            })
+        else:
+            return jsonify({"error": "Shopier şu anda yanıt veremiyor. Tekrar deneyin."}), 400
+
+    except Exception as e:
+        print("Shopier Hatası:", str(e))
+        return jsonify({"error": "Bağlantı hatası oluştu"}), 500
 
 
-@app.route('/api/payment/callback', methods=['GET', 'POST'])
+@app.route('/api/payment/callback', methods=['POST'])
 def shopier_callback():
-    # GET veya POST gelebilir
-    params = request.args if request.method == 'GET' else request.form
+    try:
+        order_id = request.form.get('order_id')
+        status = request.form.get('status')
 
-    order_id = params.get('order_id')
-    status = params.get('status') or params.get('payment_status')
-
-    # Basit imza doğrulaması (Shopier'in kullandığı yöntem)
-    signature = params.get('signature')
-    if not signature:
-        return "Signature eksik", 400
-
-    # İmza kontrolü (Shopier dokümanına göre uyarla)
-    # Şimdilik basit kontrol yapıyoruz
-    if status in ['success', 'completed', '1']:
-        # order_id'den user_id'yi çıkar (FP-123-... formatı)
-        try:
+        if status == 'success' and order_id:
             user_id = int(order_id.split('-')[1])
             conn = get_db()
-            conn.execute('UPDATE users SET is_premium=1 WHERE id=?', (user_id,))
+            conn.execute('UPDATE users SET is_premium = 1 WHERE id = ?', (user_id,))
             conn.commit()
             conn.close()
-            return redirect('/dashboard?payment=success')
-        except:
-            pass
-
-    return redirect('/dashboard?payment=failed')
+            return "OK", 200
+    except:
+        pass
+    return "ERROR", 400
 
 init_db()
 
