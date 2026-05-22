@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>FitPro — Fitness Takip Platformu</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -83,6 +83,21 @@
   }
 
   nav .nav-actions { display: flex; gap: 1rem; align-items: center; }
+
+  .nav-menu-btn {
+    display: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 1.2rem;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
 
   .btn-ghost {
     background: none;
@@ -600,16 +615,130 @@
 
   .form-panel { display: none; }
   .form-panel.active { display: block; }
+
+  /* ── MOBILE ── */
+  @media (max-width: 900px) {
+    nav {
+      padding: 0.9rem 1.25rem;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .nav-menu-btn { display: flex; }
+
+    nav .nav-actions {
+      display: none;
+      position: absolute;
+      top: calc(100% + 0.5rem);
+      right: 1.25rem;
+      left: 1.25rem;
+      flex-direction: column;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 14px;
+      padding: 0.75rem;
+      gap: 0.5rem;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+    }
+
+    nav .nav-actions.open { display: flex; }
+
+    nav .nav-actions .btn-ghost,
+    nav .nav-actions .btn-primary {
+      width: 100%;
+      text-align: center;
+      padding: 0.85rem 1rem;
+    }
+
+    .hero {
+      padding: 6.5rem 1.25rem 3rem;
+      min-height: auto;
+    }
+
+    .hero-sub br { display: none; }
+
+    .hero-actions {
+      flex-direction: column;
+      width: 100%;
+      max-width: 320px;
+      margin: 0 auto;
+    }
+
+    .btn-hero, .btn-demo {
+      width: 100%;
+      padding: 0.95rem 1.5rem;
+    }
+
+    .stats-strip {
+      flex-wrap: wrap;
+      gap: 1.5rem 2rem;
+      padding: 1.5rem 1.25rem;
+    }
+
+    .stat-item { flex: 1 1 40%; min-width: 120px; }
+
+    .section { padding: 3rem 1.25rem; }
+
+    .features-grid {
+      grid-template-columns: 1fr;
+      margin-top: 2rem;
+      gap: 1rem;
+    }
+
+    .feature-card { padding: 1.35rem; }
+
+    .pricing-grid {
+      grid-template-columns: 1fr;
+      max-width: 100%;
+      margin-top: 2rem;
+    }
+
+    .pricing-card { padding: 1.75rem 1.5rem; }
+
+    .pricing-amount { font-size: 2.5rem; }
+
+    .modal-overlay {
+      align-items: flex-end;
+      padding: 0;
+    }
+
+    .modal {
+      max-width: 100%;
+      border-radius: 18px 18px 0 0;
+      padding: 1.75rem 1.25rem calc(1.75rem + env(safe-area-inset-bottom, 0px));
+      max-height: 92vh;
+      overflow-y: auto;
+    }
+
+    .form-row { grid-template-columns: 1fr; }
+
+    footer { padding: 2rem 1.25rem; }
+  }
+
+  @media (max-width: 480px) {
+    .logo { font-size: 1.25rem; }
+
+    h1 { letter-spacing: -1px; }
+
+    .stats-strip { gap: 1.25rem; }
+
+    .stat-item { flex: 1 1 100%; }
+
+    .stat-num { font-size: 1.65rem; }
+
+    .section-title { font-size: 1.75rem; }
+  }
 </style>
 </head>
 <body>
 
 <!-- Nav -->
-<nav>
+<nav style="position:relative;">
   <div class="logo">FitPro</div>
-  <div class="nav-actions">
-    <button class="btn-ghost" onclick="openModal('login')">Giriş Yap</button>
-    <button class="btn-primary" onclick="openModal('register')">Ücretsiz Başla</button>
+  <button type="button" class="nav-menu-btn" id="navMenuBtn" onclick="toggleMobileNav()" aria-label="Menü">☰</button>
+  <div class="nav-actions" id="navActions">
+    <button class="btn-ghost" onclick="openModal('login'); closeMobileNav();">Giriş Yap</button>
+    <button class="btn-primary" onclick="openModal('register'); closeMobileNav();">Ücretsiz Başla</button>
   </div>
 </nav>
 
@@ -799,7 +928,21 @@
 </div>
 
 <script>
+  function toggleMobileNav() {
+    document.getElementById('navActions')?.classList.toggle('open');
+  }
+
+  function closeMobileNav() {
+    document.getElementById('navActions')?.classList.remove('open');
+  }
+
+  document.addEventListener('click', (e) => {
+    const nav = document.querySelector('nav');
+    if (nav && !nav.contains(e.target)) closeMobileNav();
+  });
+
   function openModal(tab) {
+    closeMobileNav();
     document.getElementById('authModal').classList.add('active');
     switchTab(tab);
   }
