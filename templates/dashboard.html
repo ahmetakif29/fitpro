@@ -1546,23 +1546,69 @@
         </div>
       </div>
 
-      <div class="payment-form" style="background: rgba(103,0,255,0.08); border-radius: 12px; padding: 1rem; margin-bottom: 1rem;">
-        <p style="font-size: 0.85rem; color: var(--muted); line-height: 1.5; margin: 0;">
+      <!-- Email uyarısı -->
+      <div style="background:#ffd16615;border:1px solid #ffd16640;border-radius:12px;padding:1rem;margin-bottom:1rem;">
+        <div style="display:flex;align-items:flex-start;gap:0.6rem;">
+          <span style="font-size:1.2rem;flex-shrink:0;">⚠️</span>
+          <div>
+            <div style="font-size:0.85rem;font-weight:600;color:var(--amber);margin-bottom:0.4rem;">Önemli: Premium hesabınıza doğru email ile ödeme yapın</div>
+            <div style="font-size:0.8rem;color:var(--muted);line-height:1.6;">
+              Premium, ödeme yapılan email adresi ile <strong style="color:var(--text)">eşleştirilerek</strong> aktifleştirilir.
+              Shopier'de farklı bir email kullanırsanız premium <strong style="color:var(--red)">aktifleşmez</strong> ve iade talebinde bulunamazsınız.
+            </div>
+            <div id="payEmailShow" style="margin-top:0.6rem;font-size:0.82rem;color:var(--text);background:var(--surface3);padding:0.4rem 0.8rem;border-radius:8px;display:inline-block;">
+              Hesap emaili: <strong id="payEmailValue">—</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Onay kutuları -->
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:1rem;margin-bottom:1rem;">
+        <div style="font-size:0.8rem;font-weight:600;color:var(--muted);margin-bottom:0.8rem;letter-spacing:0.5px;">DEVAM ETMEDEN ÖNCE ONAYLAYIN</div>
+
+        <label style="display:flex;align-items:flex-start;gap:0.75rem;cursor:pointer;margin-bottom:0.75rem;">
+          <input type="checkbox" id="chk1" onchange="checkPaymentReady()"
+            style="width:18px;height:18px;flex-shrink:0;margin-top:2px;accent-color:var(--accent);cursor:pointer;">
+          <span style="font-size:0.82rem;color:var(--muted);line-height:1.5;">
+            Shopier'de ödeme yaparken <strong style="color:var(--text)">FitPro hesabımla aynı email adresini</strong> kullanacağımı anlıyorum.
+          </span>
+        </label>
+
+        <label style="display:flex;align-items:flex-start;gap:0.75rem;cursor:pointer;margin-bottom:0.75rem;">
+          <input type="checkbox" id="chk2" onchange="checkPaymentReady()"
+            style="width:18px;height:18px;flex-shrink:0;margin-top:2px;accent-color:var(--accent);cursor:pointer;">
+          <span style="font-size:0.82rem;color:var(--muted);line-height:1.5;">
+            Yanlış email ile ödeme yapılması durumunda premium <strong style="color:var(--red)">aktifleşmeyeceğini</strong> ve bu durumda iade talep edemeyeceğimi kabul ediyorum.
+          </span>
+        </label>
+
+        <label style="display:flex;align-items:flex-start;gap:0.75rem;cursor:pointer;">
+          <input type="checkbox" id="chk3" onchange="checkPaymentReady()"
+            style="width:18px;height:18px;flex-shrink:0;margin-top:2px;accent-color:var(--accent);cursor:pointer;">
+          <span style="font-size:0.82rem;color:var(--muted);line-height:1.5;">
+            <strong style="color:var(--text)">Kullanım koşullarını</strong> ve <strong style="color:var(--text)">gizlilik politikasını</strong> okudum, kabul ediyorum.
+          </span>
+        </label>
+      </div>
+
+      <div class="payment-form" style="background:rgba(103,0,255,0.08);border-radius:12px;padding:1rem;margin-bottom:1rem;">
+        <p style="font-size:0.85rem;color:var(--muted);line-height:1.5;margin:0;">
           Ödeme <strong>Shopier</strong> sayfasında güvenle yapılır. Ödeme sonrası premium hesabınıza
           <strong>otomatik</strong> tanımlanır (birkaç saniye sürebilir).
         </p>
-        <p id="paymentEmailHint" style="font-size: 0.85rem; color: var(--amber); margin: 0.75rem 0 0;"></p>
       </div>
 
-      <button 
-  class="btn btn-accent" 
-  style="width: 100%; padding: 0.9rem; font-size: 1rem;"
-  onclick="startPremiumPayment(selectedPlan)"
-  id="payBtn"
->
-  Shopier ile Güvenli Öde
-</button>
-      <p style="text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 0.8rem;">
+      <button
+        class="btn btn-accent"
+        style="width:100%;padding:0.9rem;font-size:1rem;opacity:0.4;cursor:not-allowed;"
+        onclick="startPremiumPayment(selectedPlan)"
+        id="payBtn"
+        disabled
+      >
+        Shopier ile Güvenli Öde
+      </button>
+      <p style="text-align:center;color:var(--muted);font-size:0.75rem;margin-top:0.8rem;">
         🔒 256-bit SSL şifrelemesi ile güvenli ödeme
       </p>
     </div>
@@ -2806,7 +2852,31 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
     if (id === 'workoutModal') document.getElementById('woDate').value = today;
     if (id === 'foodModal') document.getElementById('foodDate').value = today;
     if (id === 'measureModal') document.getElementById('mDate').value = today;
+    if (id === 'paymentModal') {
+      // Email göster
+      const emailEl = document.getElementById('payEmailValue');
+      if (emailEl && currentUser) emailEl.textContent = currentUser.email || '—';
+      // Checkboxları sıfırla
+      ['chk1','chk2','chk3'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.checked = false;
+      });
+      // Butonu kilitle
+      checkPaymentReady();
+    }
     document.getElementById(id).classList.add('active');
+  }
+
+  function checkPaymentReady() {
+    const allChecked = ['chk1','chk2','chk3'].every(id => {
+      const el = document.getElementById(id);
+      return el && el.checked;
+    });
+    const btn = document.getElementById('payBtn');
+    if (!btn) return;
+    btn.disabled = !allChecked;
+    btn.style.opacity = allChecked ? '1' : '0.4';
+    btn.style.cursor = allChecked ? 'pointer' : 'not-allowed';
   }
 
   function closeModal(id) { document.getElementById(id).classList.remove('active'); }
