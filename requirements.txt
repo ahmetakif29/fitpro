@@ -1,4 +1,5 @@
 Flask
 requests
 gunicorn
+psycopg2-binary
 # veritabanı kütüphanen (psycopg2-binary, flask-sqlalchemy vs.)
