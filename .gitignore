@@ -1,0 +1,20 @@
+# Veritabanı
+fitpro.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment
+.env
+.venv
+venv/
+
+# Render / Build dosyaları
+*.log
+
+# IDE dosyaları
+.vscode/
+.idea/
