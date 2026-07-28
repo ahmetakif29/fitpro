@@ -302,6 +302,57 @@ def login():
     return jsonify({'success': True, 'user': {'id': u['id'], 'username': u['username'], 'is_premium': bool(u['is_premium'])}})
 
 
+@app.route('/api/cron/daily-reminders', methods=['POST'])
+def cron_daily_reminders():
+    cron_secret = os.environ.get('CRON_SECRET', '')
+    incoming = request.headers.get('X-Cron-Secret', '')
+    if not cron_secret or incoming != cron_secret:
+        return jsonify({'error': 'yetkisiz'}), 403
+
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute('''
+        SELECT u.id, u.fcm_token,
+          (SELECT MAX(date) FROM workout_logs WHERE user_id = u.id) AS last_workout,
+          (SELECT MAX(date) FROM weight_logs WHERE user_id = u.id) AS last_weight
+        FROM users u
+        WHERE u.fcm_token IS NOT NULL AND u.fcm_token <> ''
+    ''')
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+
+    today = date.today()
+    sent = 0
+    for r in rows:
+        title = body = None
+
+        last_workout = None
+        if r['last_workout']:
+            try:
+                last_workout = date.fromisoformat(str(r['last_workout'])[:10])
+            except Exception:
+                last_workout = None
+
+        last_weight = None
+        if r['last_weight']:
+            try:
+                last_weight = date.fromisoformat(str(r['last_weight'])[:10])
+            except Exception:
+                last_weight = None
+
+        if last_workout is None or (today - last_workout).days >= 3:
+            title = 'Hadi devam et 💪'
+            body = 'Birkaç gündür antrenman kaydın yok. Bugün küçük bir seans bile fark yaratır.'
+        elif last_weight is None or (today - last_weight).days >= 2:
+            title = 'Kilonu unutma ⚖️'
+            body = 'Birkaç gündür kilo girmemişsin, birkaç saniyende güncelle.'
+
+        if title and r['fcm_token']:
+            if send_push_notification(r['fcm_token'], title, body):
+                sent += 1
+
+    return jsonify({'success': True, 'checked': len(rows), 'sent': sent})
+
+
 @app.route('/api/push/register', methods=['POST'])
 def push_register():
     if 'user_id' not in session:
