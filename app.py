@@ -309,24 +309,40 @@ MSG_CLOSE_TO_GOAL = [
     ('Çok yaklaştın! 🎯', 'Hedefine sadece {kg} kg kaldı, şimdi pes etme!'),
     ('Neredeyse orada! 🔥', '{kg} kg sonra hedefindesin, son viraj!'),
     ('Bitmek üzere 💪', 'Hedefe {kg} kg kaldı, bu son kısım en önemlisi.'),
+    ('Son düzlük 🏁', 'Sadece {kg} kg kaldı, bırakma şimdi!'),
+    ('Az kaldı, devam! ⚡', '{kg} kg sonra hedefine ulaşacaksın, hızını kesme.'),
+    ('Hedef gözüküyor 👀', '{kg} kg kaldı, artık çok yakınsın.'),
+    ('Finalist gibisin 🏆', 'Hedefine {kg} kg kaldı, bu son adımları at.'),
 ]
 
 MSG_PROGRESS = [
     ('Harika gidiyorsun 📉', 'Başladığından beri {lost} kg verdin, bu gerçek bir başarı!'),
     ('Etkileyici ilerleme 🚀', '{lost} kg vererek harika bir yol kat ettin, devam!'),
     ('Emeğin boşa gitmiyor 💚', 'Şu ana kadar {lost} kg kaybettin, gurur duy kendinle.'),
+    ('Fark yaratıyorsun ✨', '{lost} kg verdin, vücudun bunu hissediyor.'),
+    ('Küçümsenmeyecek bir başarı 🔥', 'Toplamda {lost} kg verdin, bu emeğin karşılığı.'),
+    ('Gurur verici 💪', '{lost} kg kaybettin, bu emek boşa gitmiyor.'),
+    ('İlerleme gerçek 📊', 'Başlangıçtan bu yana {lost} kg indin, tebrikler.'),
 ]
 
 MSG_STREAK_GOOD = [
     ('Seri devam ediyor 🔥', 'Bu hafta {n} antrenman yaptın, bu tempoyu koru!'),
     ('Bu hafta harikaydın 💪', '{n} antrenmanla haftayı domine ettin, aynen devam!'),
     ('İyi gidiyorsun 👏', 'Bu hafta {n} kez antrenmana gittin, seriyi bozma!'),
+    ('Tempo tutturdun ⚡', '{n} antrenmanla bu hafta gerçekten iyiydin.'),
+    ('Disiplin bu işte 🎯', 'Bu hafta {n} kere antrenman yaptın, harika bir alışkanlık.'),
+    ('Form yakaladın 🔥', '{n} antrenmanlık bir hafta geçirdin, devam et.'),
+    ('Süpersin 🌟', 'Bu hafta {n} antrenmanla kendini geçtin.'),
 ]
 
 MSG_LONG_INACTIVE = [
     ('Seni özledik 👋', '{days} gündür seni görmedik, geri dönmeye ne dersin?'),
     ('Neredesin? 🤔', '{days} gündür uygulamaya girmedin, hedefin seni bekliyor.'),
     ('Formunu kaybetme ⚠️', '{days} gündür ara verdin, küçük bir adımla geri dön.'),
+    ('Geri dönüş zamanı 🔄', '{days} gündür yoksun, bugün tekrar başlayabilirsin.'),
+    ('Seni bekliyoruz 💙', '{days} gün oldu, hadi kaldığın yerden devam et.'),
+    ('Ara uzadı 📅', '{days} gündür aktif değilsin, küçük bir adım yeter.'),
+    ('Hâlâ oradayız 🙌', '{days} gündür seni görmüyoruz, geri gelmen bizi mutlu eder.'),
 ]
 
 MSG_NO_WORKOUT = [
@@ -334,12 +350,19 @@ MSG_NO_WORKOUT = [
     ('Bugün sıra sende 🔥', 'Antrenman zamanı geldi, hadi başlayalım.'),
     ('5 dakika bile yeter 🏃', 'Uzun süredir antrenman yok, kısa bir seansla başla.'),
     ('Vücudun seni bekliyor', 'Antrenmana ara verdin gibi, bugün devam edelim mi?'),
+    ('Harekete geç ⚡', 'Birkaç gündür antrenman yok, bugün bunu değiştir.'),
+    ('Küçük bir başlangıç yeter 🌱', 'Uzun bir antrenman şart değil, bugün 10 dakika bile iş görür.'),
+    ('Bahane yok 😤', 'Antrenman kaydın birkaç gündür yok, hadi bugün yap.'),
 ]
 
 MSG_NO_WEIGHT = [
     ('Kilonu unutma ⚖️', 'Birkaç gündür kilo girmemişsin, birkaç saniyende güncelle.'),
     ('Takipte kal 📊', 'Kilonu güncel tutmak ilerlemeni net görmeni sağlar.'),
     ('Hızlı bir güncelleme 📝', 'Bugünkü kilonu ekleyip grafiğini güncel tut.'),
+    ('Veri güçtür 💡', 'Kilonu girmen, ilerlemeni doğru görmen için önemli.'),
+    ('Bir dakikanı ayır ⏱️', 'Kilo girişini unutma, grafiğin seni bekliyor.'),
+    ('Küçük bir adım 📈', 'Bugünkü kilonu eklemeyi unutma.'),
+    ('Sayılar konuşsun 🔢', 'Kilonu güncelleyerek gerçek ilerlemeni gör.'),
 ]
 
 MSG_GENERIC_MOTIVATION = [
@@ -347,6 +370,9 @@ MSG_GENERIC_MOTIVATION = [
     ('Disiplin motivasyondan güçlüdür', 'Canın istemese de bugün devam et, ileride teşekkür edeceksin.'),
     ('Kendine yatırım yap 💚', 'Vücudun senin en değerli yatırımın, bugün ona zaman ayır.'),
     ('Pes etme 🎯', 'Hedefin hâlâ orada, sen de oraya gidebilirsin.'),
+    ('Bir adım daha 👣', 'Her gün biraz daha yakınsın, bugün de devam et.'),
+    ('Kendini geçmeye devam 🏃', 'Dünkü halinden daha iyisin, bugün bunu kanıtla.'),
+    ('Şimdi ya da hiç 🔥', 'Ertelemek yerine bugün küçük bir adım at.'),
 ]
 
 
