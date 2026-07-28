@@ -1684,6 +1684,43 @@
     }, 3000);
   }
 
+  // ── Push Notifications ──────────────────────────────────────────────────
+  async function setupPushNotifications() {
+    try {
+      if (typeof Capacitor === 'undefined' || !Capacitor.isNativePlatform || !Capacitor.isNativePlatform()) return;
+      const PushNotifications = Capacitor.Plugins && Capacitor.Plugins.PushNotifications;
+      if (!PushNotifications) return;
+
+      let permStatus = await PushNotifications.checkPermissions();
+      if (permStatus.receive === 'prompt') {
+        permStatus = await PushNotifications.requestPermissions();
+      }
+      if (permStatus.receive !== 'granted') return;
+
+      await PushNotifications.register();
+
+      PushNotifications.addListener('registration', async (token) => {
+        try {
+          await fetch('/api/push/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: token.value })
+          });
+        } catch (e) { console.error('push token kaydedilemedi', e); }
+      });
+
+      PushNotifications.addListener('registrationError', (err) => {
+        console.error('push kayit hatasi', err);
+      });
+
+      PushNotifications.addListener('pushNotificationReceived', (notification) => {
+        showToast(notification.body || notification.title || 'Yeni bildirim', 'success');
+      });
+    } catch (e) {
+      console.error('setupPushNotifications hata', e);
+    }
+  }
+
   async function init() {
     const res = await fetch('/api/me');
     if (!res.ok) { window.location.href = '/'; return; }
@@ -1705,6 +1742,8 @@
       showToast('Ödeme kontrol ediliyor...');
       startPaymentPolling();
     }
+
+    setupPushNotifications();
 
     await loadStats();
     await loadWeights();
@@ -2889,7 +2928,7 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
 
   async function logout() {
     await fetch('/api/logout', { method: 'POST' });
-    window.location.href = '/app';
+    window.location.href = '/';
   }
 
   // ── Profile ───────────────────────────────────────────────────────────────
