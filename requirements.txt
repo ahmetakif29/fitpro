@@ -2,4 +2,5 @@ Flask
 requests
 gunicorn
 psycopg2-binary
+firebase-admin
 # veritabanı kütüphanen (psycopg2-binary, flask-sqlalchemy vs.)
