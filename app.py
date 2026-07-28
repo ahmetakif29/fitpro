@@ -6,6 +6,33 @@ from datetime import date, timedelta, datetime
 import requests
 import urllib.request
 
+try:
+    import firebase_admin
+    from firebase_admin import credentials, messaging
+    FIREBASE_CRED_JSON = os.environ.get('FIREBASE_SERVICE_ACCOUNT')
+    if FIREBASE_CRED_JSON and not firebase_admin._apps:
+        cred = credentials.Certificate(json.loads(FIREBASE_CRED_JSON))
+        firebase_admin.initialize_app(cred)
+except Exception as _fb_err:
+    firebase_admin = None
+    print('Firebase Admin baslatilamadi:', _fb_err)
+
+
+def send_push_notification(fcm_token, title, body):
+    """Tek bir kullaniciya bildirim gonderir. Basarili ise True doner."""
+    if not fcm_token or firebase_admin is None or not firebase_admin._apps:
+        return False
+    try:
+        message = messaging.Message(
+            notification=messaging.Notification(title=title, body=body),
+            token=fcm_token,
+        )
+        messaging.send(message)
+        return True
+    except Exception as e:
+        print('Push gonderim hatasi:', e)
+        return False
+
 # ====================== SHOPIER AYARLARI ======================
 SHOPIER_API_KEY        = os.environ.get('SHOPIER_API_KEY', '')
 SHOPIER_API_SECRET     = os.environ.get('SHOPIER_API_SECRET', '')
@@ -273,6 +300,37 @@ def login():
     session.permanent = True
     session['user_id'] = u['id']
     return jsonify({'success': True, 'user': {'id': u['id'], 'username': u['username'], 'is_premium': bool(u['is_premium'])}})
+
+
+@app.route('/api/push/register', methods=['POST'])
+def push_register():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Giriş yapmalısınız'}), 401
+    d = request.json or {}
+    token = d.get('token')
+    if not token:
+        return jsonify({'error': 'Token eksik'}), 400
+    conn = get_db(); cur = conn.cursor()
+    cur.execute('UPDATE users SET fcm_token = %s WHERE id = %s', (token, session['user_id']))
+    conn.commit()
+    cur.close(); conn.close()
+    return jsonify({'success': True})
+
+
+@app.route('/api/push/test', methods=['POST'])
+def push_test():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Giriş yapmalısınız'}), 401
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute('SELECT fcm_token FROM users WHERE id = %s', (session['user_id'],))
+    u = cur.fetchone()
+    cur.close(); conn.close()
+    if not u or not u['fcm_token']:
+        return jsonify({'error': 'Kayıtlı bildirim token bulunamadı, önce app üzerinden giriş yapıp izin verdiğinden emin ol'}), 400
+    ok = send_push_notification(u['fcm_token'], 'FitPro', 'Bu bir test bildirimi 🎉')
+    if not ok:
+        return jsonify({'error': 'Bildirim gönderilemedi, Firebase ayarlarını kontrol et'}), 500
+    return jsonify({'success': True})
 
 
 @app.route('/api/logout', methods=['POST'])
