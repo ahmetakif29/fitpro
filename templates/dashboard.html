@@ -1723,9 +1723,9 @@
 
   async function init() {
     const res = await fetch('/api/me');
-    if (!res.ok) { window.location.href = '/'; return; }
+    if (!res.ok) { window.location.href = '/app'; return; }
     currentUser = await res.json();
-    if (!currentUser || currentUser.error) { window.location.href = '/'; return; }
+    if (!currentUser || currentUser.error) { window.location.href = '/app'; return; }
 
     document.getElementById('userAvatar').textContent = currentUser.username[0].toUpperCase();
     document.getElementById('userName').textContent = currentUser.username;
@@ -2928,7 +2928,7 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
 
   async function logout() {
     await fetch('/api/logout', { method: 'POST' });
-    window.location.href = '/';
+    window.location.href = '/app';
   }
 
   // ── Profile ───────────────────────────────────────────────────────────────
