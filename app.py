@@ -210,6 +210,34 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/app')
+def mobile_app():
+    if 'user_id' in session:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('SELECT id FROM users WHERE id = %s', (session['user_id'],))
+        u = cur.fetchone()
+        cur.close(); conn.close()
+        if u:
+            return redirect('/dashboard')
+        session.clear()
+    return render_template('app_mobile.html')
+
+
+@app.route('/app')
+def mobile_entry():
+    if 'user_id' in session:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('SELECT id FROM users WHERE id = %s', (session['user_id'],))
+        u = cur.fetchone()
+        cur.close(); conn.close()
+        if u:
+            return redirect('/dashboard')
+        session.clear()
+    return render_template('app_mobile.html')
+
+
 @app.route('/api/register', methods=['POST'])
 def register():
     d = request.json
@@ -223,6 +251,7 @@ def register():
         )
         uid = cur.fetchone()[0]
         conn.commit()
+        session.permanent = True
         session['user_id'] = uid
         return jsonify({'success': True, 'user': {'id': uid, 'username': d['username'], 'is_premium': False}})
     except psycopg2.errors.UniqueViolation:

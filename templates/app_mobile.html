@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>FitPro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: #ffffff0f;
+    --border2: #ffffff1a;
+    --text: #f0f0f8;
+    --muted: #8888aa;
+    --accent: #7c5cfc;
+    --accent2: #a87fff;
+    --green: #00e5a0;
+    --red: #ff4d6d;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    overscroll-behavior: none;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: hidden;
+    position: fixed;
+    inset: 0;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  input { -webkit-user-select: text; user-select: text; }
+
+  /* ── AMBIENT BG ── */
+  .bg-grid {
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 46px 46px;
+    z-index: 0;
+    opacity: 0;
+    animation: gridFade 2s 0.3s ease forwards;
+  }
+  @keyframes gridFade { to { opacity: 1; } }
+
+  .bg-glow {
+    position: fixed;
+    top: -30%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(ellipse, #7c5cfc22 0%, transparent 70%);
+    z-index: 0;
+    pointer-events: none;
+    animation: glowPulse 6s ease-in-out infinite;
+  }
+  .bg-glow2 {
+    position: fixed;
+    bottom: -20%;
+    right: -20%;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(ellipse, #00e5a015 0%, transparent 70%);
+    z-index: 0;
+    pointer-events: none;
+    animation: glowPulse 8s 1s ease-in-out infinite;
+  }
+  @keyframes glowPulse {
+    0%, 100% { opacity: 0.6; transform: translateX(-50%) scale(1); }
+    50% { opacity: 1; transform: translateX(-50%) scale(1.15); }
+  }
+  .bg-glow2 { animation-name: glowPulse2; }
+  @keyframes glowPulse2 {
+    0%, 100% { opacity: 0.5; transform: scale(1); }
+    50% { opacity: 0.9; transform: scale(1.2); }
+  }
+
+  /* ── PARTICLES ── */
+  .particle {
+    position: fixed;
+    border-radius: 50%;
+    background: var(--accent2);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    animation: floatUp linear infinite;
+  }
+  @keyframes floatUp {
+    0% { transform: translateY(0) translateX(0); opacity: 0; }
+    10% { opacity: 0.5; }
+    90% { opacity: 0.3; }
+    100% { transform: translateY(-100vh) translateX(20px); opacity: 0; }
+  }
+
+  /* ══════════ SPLASH ══════════ */
+  .splash {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    animation: splashOut 0.6s 1.9s ease forwards;
+  }
+
+  @keyframes splashOut {
+    to { opacity: 0; visibility: hidden; transform: scale(1.05); }
+  }
+
+  .splash-mark {
+    width: 84px;
+    height: 84px;
+    border-radius: 22px;
+    background: linear-gradient(135deg, var(--accent), var(--green));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 2.2rem;
+    color: #0a0a0f;
+    box-shadow: 0 0 0 0 #7c5cfc55;
+    animation: markIn 0.7s cubic-bezier(.34,1.56,.64,1) both, markGlow 1.6s 0.7s ease;
+    transform: scale(0);
+  }
+
+  @keyframes markIn {
+    0% { transform: scale(0) rotate(-15deg); opacity: 0; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+  @keyframes markGlow {
+    0% { box-shadow: 0 0 0 0 #7c5cfc55; }
+    50% { box-shadow: 0 0 40px 14px #7c5cfc33; }
+    100% { box-shadow: 0 0 0 0 #7c5cfc00; }
+  }
+
+  .splash-word {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    letter-spacing: -0.5px;
+    margin-top: 1.1rem;
+    opacity: 0;
+    animation: wordIn 0.6s 0.55s ease both;
+  }
+  @keyframes wordIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .splash-tag {
+    font-size: 0.82rem;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 0.6rem;
+    opacity: 0;
+    animation: wordIn 0.6s 0.85s ease both;
+  }
+
+  .splash-bar {
+    width: 120px;
+    height: 3px;
+    background: var(--surface2);
+    border-radius: 3px;
+    margin-top: 2.6rem;
+    overflow: hidden;
+    opacity: 0;
+    animation: wordIn 0.5s 1.1s ease both;
+  }
+  .splash-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--green));
+    border-radius: 3px;
+    animation: barFill 0.9s 1.15s cubic-bezier(.4,0,.2,1) forwards;
+  }
+  @keyframes barFill { to { width: 100%; } }
+
+  /* ══════════ APP SHELL ══════════ */
+  .shell {
+    position: relative;
+    z-index: 1;
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    padding: 0 1.5rem;
+    padding-top: max(3rem, env(safe-area-inset-top, 0px));
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+    opacity: 0;
+    animation: shellIn 0.7s 2.05s ease forwards;
+  }
+  @keyframes shellIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .brand-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    justify-content: center;
+    margin-bottom: 2.4rem;
+  }
+  .brand-mark {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--green));
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1rem;
+    color: #0a0a0f;
+  }
+  .brand-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.15rem;
+    letter-spacing: -0.3px;
+  }
+
+  .headline {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  .headline h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.7rem;
+    letter-spacing: -0.5px;
+    margin-bottom: 0.4rem;
+  }
+  .headline p {
+    color: var(--muted);
+    font-size: 0.92rem;
+    font-weight: 300;
+  }
+
+  /* ── SEGMENTED TABS ── */
+  .segment {
+    position: relative;
+    display: flex;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 1.6rem;
+  }
+  .segment-indicator {
+    position: absolute;
+    top: 4px; bottom: 4px;
+    left: 4px;
+    width: calc(50% - 4px);
+    background: var(--accent);
+    border-radius: 9px;
+    transition: transform 0.35s cubic-bezier(.4,0,.2,1);
+    z-index: 0;
+  }
+  .segment.register-active .segment-indicator { transform: translateX(100%); }
+  .segment button {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 0.65rem 0;
+    cursor: pointer;
+    transition: color 0.3s;
+  }
+  .segment button.active { color: #fff; }
+
+  /* ── FORM ── */
+  .form-scroll {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .form-scroll::-webkit-scrollbar { display: none; }
+
+  .panel { display: none; }
+  .panel.active {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    animation: panelIn 0.35s ease both;
+  }
+  @keyframes panelIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .field { display: flex; flex-direction: column; gap: 0.4rem; }
+  .field label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-weight: 500;
+    padding-left: 0.1rem;
+  }
+  .field input, .field select {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 0.9rem 1rem;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .field input:focus, .field select:focus {
+    border-color: var(--accent);
+    background: #15151f;
+  }
+  .field-row { display: flex; gap: 0.7rem; }
+  .field-row .field { flex: 1; min-width: 0; }
+
+  .error-msg {
+    display: none;
+    background: #ff4d6d15;
+    border: 1px solid #ff4d6d40;
+    color: var(--red);
+    padding: 0.7rem 0.9rem;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    animation: shake 0.4s ease;
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+
+  .submit-btn {
+    position: relative;
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    padding: 1rem;
+    border-radius: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.98rem;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 0.3rem;
+    transition: transform 0.15s ease, background 0.2s;
+    overflow: hidden;
+  }
+  .submit-btn:active { transform: scale(0.97); }
+  .submit-btn.loading { color: transparent; pointer-events: none; }
+  .submit-btn.success { background: var(--green); color: transparent; pointer-events: none; }
+
+  .spinner {
+    display: none;
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 20px; height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2.5px solid #ffffff40;
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  .submit-btn.loading .spinner { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .checkmark {
+    display: none;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px; height: 20px;
+  }
+  .submit-btn.success .checkmark { display: block; }
+  .checkmark svg { width: 100%; height: 100%; }
+  .checkmark path {
+    fill: none;
+    stroke: #0a0a0f;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 24;
+    stroke-dashoffset: 24;
+    animation: drawCheck 0.35s 0.05s ease forwards;
+  }
+  @keyframes drawCheck { to { stroke-dashoffset: 0; } }
+
+  .demo-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    padding: 0.95rem;
+    border-radius: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.2s;
+  }
+  .demo-btn:active { transform: scale(0.97); }
+  .demo-btn:hover { border-color: var(--accent); }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    color: var(--muted);
+    font-size: 0.78rem;
+    margin: 0.2rem 0;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border2);
+  }
+
+  .foot-note {
+    text-align: center;
+    font-size: 0.76rem;
+    color: var(--muted);
+    margin-top: 1.4rem;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+<div class="bg-glow2"></div>
+<div id="particles"></div>
+
+<!-- Splash -->
+<div class="splash" id="splash">
+  <div class="splash-mark">F</div>
+  <div class="splash-word">FitPro</div>
+  <div class="splash-tag">Hedefine odaklan</div>
+  <div class="splash-bar"><div class="splash-bar-fill"></div></div>
+</div>
+
+<!-- Shell -->
+<div class="shell">
+  <div class="brand-row">
+    <div class="brand-mark">F</div>
+    <div class="brand-name">FitPro</div>
+  </div>
+
+  <div class="headline">
+    <h1 id="headlineTitle">Tekrar hoş geldin</h1>
+    <p id="headlineSub">Devam etmek için giriş yap</p>
+  </div>
+
+  <div class="segment" id="segment">
+    <div class="segment-indicator"></div>
+    <button type="button" class="active" id="tabLogin" onclick="switchTab('login')">Giriş Yap</button>
+    <button type="button" id="tabRegister" onclick="switchTab('register')">Kayıt Ol</button>
+  </div>
+
+  <div class="form-scroll">
+    <!-- Login -->
+    <div class="panel active" id="loginPanel">
+      <div class="field">
+        <label>E-posta</label>
+        <input type="email" id="loginEmail" placeholder="ornek@email.com" autocomplete="email">
+      </div>
+      <div class="field">
+        <label>Şifre</label>
+        <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <div class="error-msg" id="loginError"></div>
+      <button type="button" class="submit-btn" id="loginBtn" onclick="handleLogin()">
+        <span class="btn-label">Giriş Yap</span>
+        <span class="spinner"></span>
+        <span class="checkmark"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
+      </button>
+      <div class="divider">veya</div>
+      <button type="button" class="demo-btn" onclick="loginDemo()">Demo Hesapla Gir</button>
+    </div>
+
+    <!-- Register -->
+    <div class="panel" id="registerPanel">
+      <div class="field-row">
+        <div class="field">
+          <label>Kullanıcı Adı</label>
+          <input type="text" id="regUsername" placeholder="kullanici">
+        </div>
+        <div class="field">
+          <label>E-posta</label>
+          <input type="email" id="regEmail" placeholder="email@mail.com" autocomplete="email">
+        </div>
+      </div>
+      <div class="field">
+        <label>Şifre</label>
+        <input type="password" id="regPassword" placeholder="En az 6 karakter" autocomplete="new-password">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Boy (cm)</label>
+          <input type="number" id="regHeight" placeholder="175">
+        </div>
+        <div class="field">
+          <label>Hedef Kilo (kg)</label>
+          <input type="number" id="regGoalWeight" placeholder="70">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Yaş</label>
+          <input type="number" id="regAge" placeholder="25">
+        </div>
+        <div class="field">
+          <label>Cinsiyet</label>
+          <select id="regGender">
+            <option value="male">Erkek</option>
+            <option value="female">Kadın</option>
+          </select>
+        </div>
+      </div>
+      <div class="error-msg" id="registerError"></div>
+      <button type="button" class="submit-btn" id="registerBtn" onclick="handleRegister()">
+        <span class="btn-label">Hesap Oluştur</span>
+        <span class="spinner"></span>
+        <span class="checkmark"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="foot-note">Giriş yaparak Kullanım Koşulları'nı kabul etmiş olursun.</div>
+</div>
+
+<script>
+  // Ambient floating particles
+  (function () {
+    const container = document.getElementById('particles');
+    const colors = ['#7c5cfc', '#00e5a0', '#a87fff'];
+    for (let i = 0; i < 14; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      const size = 2 + Math.random() * 3;
+      p.style.width = size + 'px';
+      p.style.height = size + 'px';
+      p.style.left = Math.random() * 100 + 'vw';
+      p.style.bottom = '-10px';
+      p.style.background = colors[i % colors.length];
+      p.style.animationDuration = (10 + Math.random() * 10) + 's';
+      p.style.animationDelay = (Math.random() * 8) + 's';
+      container.appendChild(p);
+    }
+  })();
+
+  function switchTab(tab) {
+    const segment = document.getElementById('segment');
+    document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
+    document.getElementById('tabRegister').classList.toggle('active', tab === 'register');
+    document.getElementById('loginPanel').classList.toggle('active', tab === 'login');
+    document.getElementById('registerPanel').classList.toggle('active', tab === 'register');
+    segment.classList.toggle('register-active', tab === 'register');
+    document.getElementById('headlineTitle').textContent = tab === 'login' ? 'Tekrar hoş geldin' : 'Aramıza katıl';
+    document.getElementById('headlineSub').textContent = tab === 'login' ? 'Devam etmek için giriş yap' : 'Ücretsiz hesabını oluştur';
+  }
+
+  function setBtnState(btn, state) {
+    btn.classList.remove('loading', 'success');
+    if (state) btn.classList.add(state);
+  }
+
+  async function handleLogin() {
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    const errEl = document.getElementById('loginError');
+    const btn = document.getElementById('loginBtn');
+    errEl.style.display = 'none';
+
+    if (!email || !password) {
+      errEl.textContent = 'Lütfen tüm alanları doldur';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    setBtnState(btn, 'loading');
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setBtnState(btn, null);
+        errEl.textContent = data.error || 'Giriş başarısız';
+        errEl.style.display = 'block';
+        return;
+      }
+      setBtnState(btn, 'success');
+      setTimeout(() => { window.location.href = '/dashboard'; }, 500);
+    } catch (e) {
+      setBtnState(btn, null);
+      errEl.textContent = 'Bağlantı hatası, tekrar dene';
+      errEl.style.display = 'block';
+    }
+  }
+
+  async function handleRegister() {
+    const errEl = document.getElementById('registerError');
+    const btn = document.getElementById('registerBtn');
+    errEl.style.display = 'none';
+
+    const payload = {
+      username: document.getElementById('regUsername').value,
+      email: document.getElementById('regEmail').value,
+      password: document.getElementById('regPassword').value,
+      height: parseFloat(document.getElementById('regHeight').value) || null,
+      goal_weight: parseFloat(document.getElementById('regGoalWeight').value) || null,
+      age: parseInt(document.getElementById('regAge').value) || null,
+      gender: document.getElementById('regGender').value
+    };
+
+    if (!payload.username || !payload.email || !payload.password) {
+      errEl.textContent = 'Lütfen zorunlu alanları doldur';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    setBtnState(btn, 'loading');
+    try {
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setBtnState(btn, null);
+        errEl.textContent = data.error || 'Kayıt başarısız';
+        errEl.style.display = 'block';
+        return;
+      }
+      setBtnState(btn, 'success');
+      setTimeout(() => { window.location.href = '/dashboard'; }, 500);
+    } catch (e) {
+      setBtnState(btn, null);
+      errEl.textContent = 'Bağlantı hatası, tekrar dene';
+      errEl.style.display = 'block';
+    }
+  }
+
+  async function loginDemo() {
+    const btn = event.currentTarget;
+    btn.style.opacity = '0.6';
+    try {
+      await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'demo@fitpro.com', password: 'demo123' })
+      });
+      window.location.href = '/dashboard';
+    } catch (e) {
+      btn.style.opacity = '1';
+    }
+  }
+</script>
+</body>
+</html>
