@@ -302,6 +302,59 @@ def login():
     return jsonify({'success': True, 'user': {'id': u['id'], 'username': u['username'], 'is_premium': bool(u['is_premium'])}})
 
 
+# ── Bildirim mesaj kütüphanesi ──────────────────────────────────────────
+# {kg}, {days}, {n}, {lost} gibi yer tutucular ilgili duruma göre doldurulur.
+
+MSG_CLOSE_TO_GOAL = [
+    ('Çok yaklaştın! 🎯', 'Hedefine sadece {kg} kg kaldı, şimdi pes etme!'),
+    ('Neredeyse orada! 🔥', '{kg} kg sonra hedefindesin, son viraj!'),
+    ('Bitmek üzere 💪', 'Hedefe {kg} kg kaldı, bu son kısım en önemlisi.'),
+]
+
+MSG_PROGRESS = [
+    ('Harika gidiyorsun 📉', 'Başladığından beri {lost} kg verdin, bu gerçek bir başarı!'),
+    ('Etkileyici ilerleme 🚀', '{lost} kg vererek harika bir yol kat ettin, devam!'),
+    ('Emeğin boşa gitmiyor 💚', 'Şu ana kadar {lost} kg kaybettin, gurur duy kendinle.'),
+]
+
+MSG_STREAK_GOOD = [
+    ('Seri devam ediyor 🔥', 'Bu hafta {n} antrenman yaptın, bu tempoyu koru!'),
+    ('Bu hafta harikaydın 💪', '{n} antrenmanla haftayı domine ettin, aynen devam!'),
+    ('İyi gidiyorsun 👏', 'Bu hafta {n} kez antrenmana gittin, seriyi bozma!'),
+]
+
+MSG_LONG_INACTIVE = [
+    ('Seni özledik 👋', '{days} gündür seni görmedik, geri dönmeye ne dersin?'),
+    ('Neredesin? 🤔', '{days} gündür uygulamaya girmedin, hedefin seni bekliyor.'),
+    ('Formunu kaybetme ⚠️', '{days} gündür ara verdin, küçük bir adımla geri dön.'),
+]
+
+MSG_NO_WORKOUT = [
+    ('Hadi devam et 💪', 'Birkaç gündür antrenman kaydın yok, bugün küçük bir seans bile fark yaratır.'),
+    ('Bugün sıra sende 🔥', 'Antrenman zamanı geldi, hadi başlayalım.'),
+    ('5 dakika bile yeter 🏃', 'Uzun süredir antrenman yok, kısa bir seansla başla.'),
+    ('Vücudun seni bekliyor', 'Antrenmana ara verdin gibi, bugün devam edelim mi?'),
+]
+
+MSG_NO_WEIGHT = [
+    ('Kilonu unutma ⚖️', 'Birkaç gündür kilo girmemişsin, birkaç saniyende güncelle.'),
+    ('Takipte kal 📊', 'Kilonu güncel tutmak ilerlemeni net görmeni sağlar.'),
+    ('Hızlı bir güncelleme 📝', 'Bugünkü kilonu ekleyip grafiğini güncel tut.'),
+]
+
+MSG_GENERIC_MOTIVATION = [
+    ('Bugün senin günün ☀️', 'Küçük bir adım, büyük bir farkın başlangıcı olabilir.'),
+    ('Disiplin motivasyondan güçlüdür', 'Canın istemese de bugün devam et, ileride teşekkür edeceksin.'),
+    ('Kendine yatırım yap 💚', 'Vücudun senin en değerli yatırımın, bugün ona zaman ayır.'),
+    ('Pes etme 🎯', 'Hedefin hâlâ orada, sen de oraya gidebilirsin.'),
+]
+
+
+def pick_message(pool, **kwargs):
+    title, body = random.choice(pool)
+    return title, body.format(**kwargs)
+
+
 @app.route('/api/cron/daily-reminders', methods=['POST'])
 def cron_daily_reminders():
     cron_secret = os.environ.get('CRON_SECRET', '')
@@ -311,9 +364,12 @@ def cron_daily_reminders():
 
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute('''
-        SELECT u.id, u.fcm_token,
+        SELECT u.id, u.fcm_token, u.goal_weight,
           (SELECT MAX(date) FROM workout_logs WHERE user_id = u.id) AS last_workout,
-          (SELECT MAX(date) FROM weight_logs WHERE user_id = u.id) AS last_weight
+          (SELECT MAX(date) FROM weight_logs WHERE user_id = u.id) AS last_weight,
+          (SELECT weight FROM weight_logs WHERE user_id = u.id ORDER BY date DESC LIMIT 1) AS current_weight,
+          (SELECT weight FROM weight_logs WHERE user_id = u.id ORDER BY date ASC LIMIT 1) AS start_weight,
+          (SELECT COUNT(*) FROM workout_logs WHERE user_id = u.id AND date >= (CURRENT_DATE - INTERVAL '7 days')::text) AS weekly_workouts
         FROM users u
         WHERE u.fcm_token IS NOT NULL AND u.fcm_token <> ''
     ''')
@@ -322,29 +378,56 @@ def cron_daily_reminders():
 
     today = date.today()
     sent = 0
-    for r in rows:
-        title = body = None
 
+    for r in rows:
         last_workout = None
         if r['last_workout']:
             try:
                 last_workout = date.fromisoformat(str(r['last_workout'])[:10])
             except Exception:
-                last_workout = None
+                pass
 
         last_weight = None
         if r['last_weight']:
             try:
                 last_weight = date.fromisoformat(str(r['last_weight'])[:10])
             except Exception:
-                last_weight = None
+                pass
 
-        if last_workout is None or (today - last_workout).days >= 3:
-            title = 'Hadi devam et 💪'
-            body = 'Birkaç gündür antrenman kaydın yok. Bugün küçük bir seans bile fark yaratır.'
-        elif last_weight is None or (today - last_weight).days >= 2:
-            title = 'Kilonu unutma ⚖️'
-            body = 'Birkaç gündür kilo girmemişsin, birkaç saniyende güncelle.'
+        days_since_workout = (today - last_workout).days if last_workout else None
+        days_since_weight = (today - last_weight).days if last_weight else None
+        inactive_days = max(d for d in [days_since_workout, days_since_weight, 999] if d is not None)
+
+        remaining_kg = None
+        if r['current_weight'] is not None and r['goal_weight']:
+            remaining_kg = round(abs(r['current_weight'] - r['goal_weight']), 1)
+
+        lost_kg = None
+        if r['start_weight'] is not None and r['current_weight'] is not None:
+            diff = round(r['start_weight'] - r['current_weight'], 1)
+            if diff > 0:
+                lost_kg = diff
+
+        weekly_workouts = r['weekly_workouts'] or 0
+
+        title = body = None
+
+        # Öncelik sırası: uzun süredir yok > hedefe çok yakın > antrenman eksik >
+        # kilo eksik > iyi seri (övgü) > ilerleme övgüsü > genel motivasyon
+        if days_since_workout is not None and days_since_workout >= 7:
+            title, body = pick_message(MSG_LONG_INACTIVE, days=days_since_workout)
+        elif remaining_kg is not None and 0 < remaining_kg <= 2:
+            title, body = pick_message(MSG_CLOSE_TO_GOAL, kg=remaining_kg)
+        elif days_since_workout is None or days_since_workout >= 3:
+            title, body = pick_message(MSG_NO_WORKOUT)
+        elif days_since_weight is None or days_since_weight >= 2:
+            title, body = pick_message(MSG_NO_WEIGHT)
+        elif weekly_workouts >= 3:
+            title, body = pick_message(MSG_STREAK_GOOD, n=weekly_workouts)
+        elif lost_kg is not None and lost_kg >= 2:
+            title, body = pick_message(MSG_PROGRESS, lost=lost_kg)
+        else:
+            title, body = pick_message(MSG_GENERIC_MOTIVATION)
 
         if title and r['fcm_token']:
             if send_push_notification(r['fcm_token'], title, body):
