@@ -893,6 +893,44 @@
 
   /* ── BADGES ── */
   .badges-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1rem; }
+  .friends-tabs {
+    display: flex;
+    gap: 0.3rem;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 13px;
+    padding: 4px;
+    margin-bottom: 1.25rem;
+  }
+  .friends-tab {
+    flex: 1;
+    text-align: center;
+    padding: 0.65rem 0.3rem;
+    border-radius: 10px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    background: none;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    white-space: nowrap;
+    position: relative;
+  }
+  .friends-tab.active { background: var(--accent); color: #fff; }
+  .friends-tab .ft-count {
+    display: inline-block;
+    background: var(--red);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    border-radius: 10px;
+    padding: 0.05rem 0.4rem;
+    margin-left: 0.3rem;
+  }
+  .friends-tab.active .ft-count { background: rgba(255,255,255,0.3); }
+
   .friend-row {
     display: flex;
     align-items: center;
@@ -902,13 +940,14 @@
     cursor: pointer;
     border-radius: 10px;
     transition: background 0.15s;
+    min-width: 0;
   }
   .friend-row:hover, .friend-row:active { background: var(--surface2); }
   .friend-row:last-child { border-bottom: none; }
   .friend-row .avatar { width: 42px; height: 42px; font-size: 1rem; flex-shrink: 0; }
-  .friend-row-info { flex: 1; min-width: 0; }
-  .friend-row-name { font-weight: 600; font-size: 0.92rem; margin-bottom: 0.15rem; }
-  .friend-row-meta { font-size: 0.75rem; color: var(--muted); line-height: 1.5; }
+  .friend-row-info { flex: 1; min-width: 0; overflow: hidden; }
+  .friend-row-name { font-weight: 600; font-size: 0.92rem; margin-bottom: 0.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .friend-row-meta { font-size: 0.75rem; color: var(--muted); line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .friend-row-chevron { color: var(--muted); font-size: 1.1rem; flex-shrink: 0; }
 
   .fp-avatar {
@@ -1192,6 +1231,8 @@
     .fp-stat-value { font-size: 1.05rem; }
 
     .friend-row-meta { font-size: 0.72rem; }
+    .friend-code-display { font-size: 1.3rem !important; letter-spacing: 2.5px !important; }
+    .friends-tab { font-size: 0.72rem; padding: 0.6rem 0.2rem; }
 
     .topbar-actions {
       width: 100%;
@@ -3670,86 +3711,104 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
     `;
   }
 
+  let friendsPageData = { me: null, requests: [], friends: [] };
+  let friendsActiveTab = 'friends';
+
   async function renderFriends() {
     const el = document.getElementById('friendsContent');
     el.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--muted);">Yükleniyor...</div>`;
 
-    let me, requests, friends;
     try {
       const [meRes, reqRes, friendsRes] = await Promise.all([
         fetch('/api/me'), fetch('/api/friends/requests'), fetch('/api/friends')
       ]);
-      me = await meRes.json();
-      requests = await reqRes.json();
-      friends = await friendsRes.json();
+      friendsPageData.me = await meRes.json();
+      friendsPageData.requests = await reqRes.json();
+      friendsPageData.friends = await friendsRes.json();
     } catch (e) {
       el.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--red);">Yüklenemedi, tekrar dene.</div>`;
       return;
     }
 
-    const requestsSection = (requests && requests.length) ? `
-      <div class="card" style="margin-bottom:1.25rem;">
-        <div style="font-size:0.78rem;color:var(--muted);font-weight:600;letter-spacing:0.3px;margin-bottom:0.4rem;">📨 BEKLEYEN İSTEKLER (${requests.length})</div>
-        ${requests.map(r => `
-          <div class="friend-row" style="cursor:default;">
-            <div class="avatar">${(r.username||'?').charAt(0).toUpperCase()}</div>
-            <div class="friend-row-info">
-              <div class="friend-row-name">${r.username}</div>
-              <div class="friend-row-meta">Sana arkadaşlık isteği gönderdi</div>
-            </div>
-            <div style="display:flex;gap:0.4rem;flex-shrink:0;">
-              <button class="btn btn-accent" style="padding:0.45rem 0.7rem;font-size:0.78rem;" onclick="respondFriendRequest(${r.request_id}, true)">Kabul Et</button>
-              <button class="btn" style="padding:0.45rem 0.7rem;font-size:0.78rem;background:var(--surface2);" onclick="respondFriendRequest(${r.request_id}, false)">Reddet</button>
-            </div>
-          </div>
-        `).join('')}
+    const reqCount = (friendsPageData.requests || []).length;
+    el.innerHTML = `
+      <div class="friends-tabs">
+        <button class="friends-tab" data-tab="code" onclick="switchFriendsTab('code')">🔑 Davet Kodu</button>
+        <button class="friends-tab" data-tab="friends" onclick="switchFriendsTab('friends')">👥 Arkadaşlar</button>
+        <button class="friends-tab" data-tab="requests" onclick="switchFriendsTab('requests')">📨 İstekler${reqCount > 0 ? `<span class="ft-count">${reqCount}</span>` : ''}</button>
       </div>
-    ` : '';
+      <div id="friendsTabContent"></div>
+    `;
+    switchFriendsTab(friendsActiveTab);
+  }
 
+  function switchFriendsTab(tab) {
+    friendsActiveTab = tab;
+    document.querySelectorAll('.friends-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+
+    const { me, requests, friends } = friendsPageData;
+    const contentEl = document.getElementById('friendsTabContent');
+    if (!contentEl) return;
+
+    if (tab === 'code') {
+      contentEl.innerHTML = `
+        <div class="card" style="margin-bottom:1.25rem;border-color:#7c5cfc40;background:linear-gradient(145deg,#7c5cfc0c,var(--surface));">
+          <div style="font-size:0.78rem;color:var(--muted);font-weight:600;letter-spacing:0.3px;margin-bottom:0.9rem;">SENİN ARKADAŞLIK KODUN</div>
+          <div style="text-align:center;">
+            <div class="friend-code-display" style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:5px;color:var(--accent2);">${me.friend_code || '-----'}</div>
+            <button class="btn btn-accent" style="margin-top:1rem;padding:0.6rem 1.4rem;font-size:0.82rem;" onclick="copyFriendCode('${me.friend_code || ''}')">📋 Kodu Kopyala</button>
+          </div>
+          <div style="font-size:0.76rem;color:var(--muted);margin-top:1rem;text-align:center;">Bu kodu arkadaşınla paylaş, seni bulup eklesin.</div>
+        </div>
+
+        <div class="card">
+          <div style="font-size:0.78rem;color:var(--muted);font-weight:600;letter-spacing:0.3px;margin-bottom:0.6rem;">KOD İLE ARKADAŞ EKLE</div>
+          <div style="display:flex;gap:0.6rem;">
+            <input type="text" id="friendCodeInput" placeholder="Örn: A3F9K" maxlength="5" style="text-transform:uppercase;letter-spacing:2px;min-width:0;" onkeydown="if(event.key==='Enter')sendFriendRequest()">
+            <button class="btn btn-accent" style="white-space:nowrap;padding:0.75rem 1.1rem;flex-shrink:0;" onclick="sendFriendRequest()">Ekle</button>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    if (tab === 'requests') {
+      const requestsHtml = (requests && requests.length) ? requests.map(r => `
+        <div class="friend-row" style="cursor:default;">
+          <div class="avatar">${(r.username||'?').charAt(0).toUpperCase()}</div>
+          <div class="friend-row-info">
+            <div class="friend-row-name">${r.username}</div>
+            <div class="friend-row-meta">Arkadaşlık isteği gönderdi</div>
+          </div>
+          <div style="display:flex;gap:0.4rem;flex-shrink:0;">
+            <button class="btn btn-accent" style="padding:0.45rem 0.65rem;font-size:0.75rem;" onclick="respondFriendRequest(${r.request_id}, true)">Kabul</button>
+            <button class="btn" style="padding:0.45rem 0.65rem;font-size:0.75rem;background:var(--surface2);" onclick="respondFriendRequest(${r.request_id}, false)">Reddet</button>
+          </div>
+        </div>
+      `).join('') : `<div style="color:var(--muted);font-size:0.85rem;padding:1rem 0;text-align:center;">Bekleyen istek yok.</div>`;
+
+      contentEl.innerHTML = `<div class="card">${requestsHtml}</div>`;
+      return;
+    }
+
+    // tab === 'friends'
     const friendsHtml = (friends && friends.length) ? friends.map(f => {
       const remaining = (f.current_weight != null && f.goal_weight != null)
         ? Math.abs(Math.round((f.current_weight - f.goal_weight) * 10) / 10) : null;
-      const metaParts = [];
-      if (f.current_weight != null) metaParts.push(`${f.current_weight} kg`);
-      if (remaining != null) metaParts.push(`hedefe ${remaining} kg`);
-      if (f.lost_kg != null && f.lost_kg > 0) metaParts.push(`${f.lost_kg} kg verdi`);
-      metaParts.push(`bu hafta ${f.weekly_workouts || 0} antrenman`);
+      let meta = f.current_weight != null ? `${f.current_weight} kg` : 'Henüz veri yok';
+      if (remaining != null) meta += ` · hedefe ${remaining} kg`;
       return `
       <div class="friend-row" onclick="openFriendProfile(${f.id})">
         <div class="avatar">${(f.username||'?').charAt(0).toUpperCase()}</div>
         <div class="friend-row-info">
           <div class="friend-row-name">${f.username}</div>
-          <div class="friend-row-meta">${metaParts.join(' · ')}</div>
+          <div class="friend-row-meta">${meta}</div>
         </div>
         <div class="friend-row-chevron">›</div>
       </div>
-    `; }).join('') : `<div style="color:var(--muted);font-size:0.85rem;padding:0.75rem 0;text-align:center;">Henüz arkadaşın yok, kodunu paylaşarak başla 👆</div>`;
+    `; }).join('') : `<div style="color:var(--muted);font-size:0.85rem;padding:1.5rem 0;text-align:center;">Henüz arkadaşın yok.<br>"Davet Kodu" sekmesinden paylaş 👆</div>`;
 
-    el.innerHTML = `
-      <div class="card" style="margin-bottom:1.25rem;border-color:#7c5cfc40;background:linear-gradient(145deg,#7c5cfc0c,var(--surface));">
-        <div style="font-size:0.78rem;color:var(--muted);font-weight:600;letter-spacing:0.3px;margin-bottom:0.7rem;">🔑 ARKADAŞLIK KODUN</div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;">
-          <div style="font-family:'Syne',sans-serif;font-size:1.7rem;font-weight:800;letter-spacing:4px;color:var(--accent2);">${me.friend_code || '-----'}</div>
-          <button class="btn btn-accent" style="padding:0.55rem 1rem;font-size:0.8rem;flex-shrink:0;" onclick="copyFriendCode('${me.friend_code || ''}')">📋 Kopyala</button>
-        </div>
-        <div style="font-size:0.76rem;color:var(--muted);margin-top:0.7rem;">Bu kodu arkadaşınla paylaş, seni bulup eklesin.</div>
-      </div>
-
-      <div class="card" style="margin-bottom:1.25rem;">
-        <div style="font-size:0.78rem;color:var(--muted);font-weight:600;letter-spacing:0.3px;margin-bottom:0.6rem;">➕ KOD İLE ARKADAŞ EKLE</div>
-        <div style="display:flex;gap:0.6rem;">
-          <input type="text" id="friendCodeInput" placeholder="Örn: A3F9K" maxlength="5" style="text-transform:uppercase;letter-spacing:2px;" onkeydown="if(event.key==='Enter')sendFriendRequest()">
-          <button class="btn btn-accent" style="white-space:nowrap;padding:0.75rem 1.1rem;flex-shrink:0;" onclick="sendFriendRequest()">Ekle</button>
-        </div>
-      </div>
-
-      ${requestsSection}
-
-      <div class="card">
-        <div style="font-size:0.78rem;color:var(--muted);font-weight:600;letter-spacing:0.3px;margin-bottom:0.3rem;">👥 ARKADAŞLARIM (${friends ? friends.length : 0})</div>
-        ${friendsHtml}
-      </div>
-    `;
+    contentEl.innerHTML = `<div class="card">${friendsHtml}</div>`;
   }
 
   function copyFriendCode(code) {
