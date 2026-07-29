@@ -893,6 +893,15 @@
 
   /* ── BADGES ── */
   .badges-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1rem; }
+  .friend-row {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .friend-row:last-child { border-bottom: none; }
+
   .badge-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem 1rem; text-align: center; transition: all 0.3s; position: relative; overflow: hidden; }
   .badge-card.earned { border-color: var(--amber); background: linear-gradient(145deg, #ffd16608, var(--surface)); }
   .badge-card.earned::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--amber), #ff9f1c); }
@@ -1177,6 +1186,9 @@
   <button class="nav-item" onclick="showPage('badges')">
     <span class="icon">🏆</span> Rozetler
   </button>
+  <button class="nav-item" onclick="showPage('friends')">
+    <span class="icon">👥</span> Arkadaşlar
+  </button>
 
   <div class="nav-section-label">Premium</div>
   <button class="nav-item" onclick="showPage('nutrition')">
@@ -1342,6 +1354,11 @@
     <!-- BADGES PAGE -->
     <div class="page" id="page-badges">
       <div id="badgesContent"></div>
+    </div>
+
+    <!-- FRIENDS PAGE -->
+    <div class="page" id="page-friends">
+      <div id="friendsContent"></div>
     </div>
 
     <!-- PREMIUM PAGE -->
@@ -1760,7 +1777,8 @@
     profile: 'Profilim', premium: 'Premium',
     nutrition: 'Kalori & Makro Takibi',
     measurements: 'Vücut Ölçüleri',
-    badges: '🏆 Rozetlerim'
+    badges: '🏆 Rozetlerim',
+    friends: '👥 Arkadaşlar'
   };
 
   function closeSidebar() {
@@ -1800,6 +1818,7 @@
     if (name === 'nutrition') renderNutrition();
     if (name === 'measurements') renderMeasurements();
     if (name === 'badges') renderBadges();
+    if (name === 'friends') renderFriends();
     if (name === 'premium') renderPremiumPage();
     if (name === 'weight') setTimeout(renderWeightChartFull, 100);
     if (name === 'overview') setTimeout(renderOverviewChart, 100);
@@ -3591,6 +3610,128 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
         `).join('')}
       </div>
     `;
+  }
+
+  async function renderFriends() {
+    const el = document.getElementById('friendsContent');
+    el.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--muted);">Yükleniyor...</div>`;
+
+    let me, requests, friends;
+    try {
+      const [meRes, reqRes, friendsRes] = await Promise.all([
+        fetch('/api/me'), fetch('/api/friends/requests'), fetch('/api/friends')
+      ]);
+      me = await meRes.json();
+      requests = await reqRes.json();
+      friends = await friendsRes.json();
+    } catch (e) {
+      el.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--red);">Yüklenemedi, tekrar dene.</div>`;
+      return;
+    }
+
+    const requestsHtml = (requests && requests.length) ? requests.map(r => `
+      <div class="friend-row">
+        <div class="avatar">${(r.username||'?').charAt(0).toUpperCase()}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:0.9rem;">${r.username}</div>
+          <div style="font-size:0.75rem;color:var(--muted);">Sana arkadaşlık isteği gönderdi</div>
+        </div>
+        <button class="btn btn-accent" style="padding:0.4rem 0.8rem;font-size:0.8rem;" onclick="respondFriendRequest(${r.request_id}, true)">Kabul Et</button>
+        <button class="btn" style="padding:0.4rem 0.8rem;font-size:0.8rem;background:var(--surface2);" onclick="respondFriendRequest(${r.request_id}, false)">Reddet</button>
+      </div>
+    `).join('') : `<div style="color:var(--muted);font-size:0.85rem;padding:0.5rem 0;">Bekleyen istek yok.</div>`;
+
+    const friendsHtml = (friends && friends.length) ? friends.map(f => {
+      const remaining = (f.current_weight != null && f.goal_weight != null)
+        ? Math.abs(Math.round((f.current_weight - f.goal_weight) * 10) / 10) : null;
+      return `
+      <div class="friend-row">
+        <div class="avatar">${(f.username||'?').charAt(0).toUpperCase()}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:0.9rem;">${f.username}</div>
+          <div style="font-size:0.75rem;color:var(--muted);">
+            ${f.current_weight != null ? `Şu an: <b style="color:var(--text);">${f.current_weight} kg</b>` : 'Henüz kilo girişi yok'}
+            ${remaining != null ? ` · Hedefe ${remaining} kg kaldı` : ''}
+            ${f.lost_kg != null && f.lost_kg > 0 ? ` · <span style="color:var(--green);">${f.lost_kg} kg verdi 📉</span>` : ''}
+          </div>
+          <div style="font-size:0.72rem;color:var(--muted);margin-top:0.15rem;">Bu hafta ${f.weekly_workouts || 0} antrenman</div>
+        </div>
+        <button class="btn" style="padding:0.4rem 0.7rem;font-size:0.78rem;background:var(--surface2);color:var(--red);" onclick="removeFriend(${f.id}, '${(f.username||'').replace(/'/g,"")}')">Çıkar</button>
+      </div>
+    `; }).join('') : `<div style="color:var(--muted);font-size:0.85rem;padding:0.5rem 0;">Henüz arkadaşın yok, kodunu paylaş!</div>`;
+
+    el.innerHTML = `
+      <div class="card" style="margin-bottom:1.25rem;border-color:#7c5cfc40;background:linear-gradient(145deg,#7c5cfc08,var(--surface));">
+        <div style="font-size:0.78rem;color:var(--muted);font-weight:500;margin-bottom:0.5rem;">SENİN ARKADAŞLIK KODUN</div>
+        <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+          <div style="font-family:'Syne',sans-serif;font-size:1.9rem;font-weight:800;letter-spacing:3px;color:var(--accent2);">${me.friend_code || '-----'}</div>
+          <button class="btn btn-accent" style="padding:0.5rem 1rem;font-size:0.82rem;" onclick="copyFriendCode('${me.friend_code || ''}')">Kopyala</button>
+        </div>
+        <div style="font-size:0.78rem;color:var(--muted);margin-top:0.6rem;">Bu kodu arkadaşınla paylaş, seni eklesin.</div>
+      </div>
+
+      <div class="card" style="margin-bottom:1.25rem;">
+        <div style="font-size:0.78rem;color:var(--muted);font-weight:500;margin-bottom:0.6rem;">KOD İLE ARKADAŞ EKLE</div>
+        <div style="display:flex;gap:0.6rem;">
+          <input type="text" id="friendCodeInput" placeholder="Örn: A3F9K" maxlength="5" style="text-transform:uppercase;letter-spacing:2px;">
+          <button class="btn btn-accent" style="white-space:nowrap;padding:0.75rem 1.1rem;" onclick="sendFriendRequest()">Ekle</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:1.25rem;">
+        <div style="font-size:0.78rem;color:var(--muted);font-weight:500;margin-bottom:0.6rem;">BEKLEYEN İSTEKLER</div>
+        ${requestsHtml}
+      </div>
+
+      <div class="card">
+        <div style="font-size:0.78rem;color:var(--muted);font-weight:500;margin-bottom:0.6rem;">ARKADAŞLARIM (${friends ? friends.length : 0})</div>
+        ${friendsHtml}
+      </div>
+    `;
+  }
+
+  function copyFriendCode(code) {
+    if (!code) return;
+    navigator.clipboard?.writeText(code).then(() => showToast('Kod kopyalandı')).catch(() => showToast('Kopyalanamadı', true));
+  }
+
+  async function sendFriendRequest() {
+    const input = document.getElementById('friendCodeInput');
+    const code = (input.value || '').trim().toUpperCase();
+    if (!code) { showToast('Bir kod gir', true); return; }
+    try {
+      const res = await fetch('/api/friends/request', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ code })
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error || 'İstek gönderilemedi', true); return; }
+      showToast(`${data.username} kullanıcısına istek gönderildi`);
+      input.value = '';
+      renderFriends();
+    } catch (e) { showToast('Bağlantı hatası', true); }
+  }
+
+  async function respondFriendRequest(requestId, accept) {
+    try {
+      const res = await fetch('/api/friends/respond', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ request_id: requestId, accept })
+      });
+      if (!res.ok) { showToast('İşlem başarısız', true); return; }
+      showToast(accept ? 'Arkadaş eklendi 🎉' : 'İstek reddedildi');
+      renderFriends();
+    } catch (e) { showToast('Bağlantı hatası', true); }
+  }
+
+  async function removeFriend(friendId, username) {
+    if (!confirm(`${username} arkadaşlıktan çıkarılsın mı?`)) return;
+    try {
+      const res = await fetch('/api/friends/' + friendId, { method: 'DELETE' });
+      if (!res.ok) { showToast('İşlem başarısız', true); return; }
+      showToast('Arkadaşlıktan çıkarıldı');
+      renderFriends();
+    } catch (e) { showToast('Bağlantı hatası', true); }
   }
 
   init();

@@ -265,16 +265,28 @@ def mobile_entry():
     return render_template('app_mobile.html')
 
 
+FRIEND_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'  # 0,O,1,I gibi karışabilecek karakterler çıkarıldı
+
+
+def generate_unique_friend_code(cur):
+    while True:
+        code = ''.join(random.choices(FRIEND_CODE_CHARS, k=5))
+        cur.execute('SELECT 1 FROM users WHERE friend_code = %s', (code,))
+        if not cur.fetchone():
+            return code
+
+
 @app.route('/api/register', methods=['POST'])
 def register():
     d = request.json
     conn = get_db(); cur = conn.cursor()
     try:
+        friend_code = generate_unique_friend_code(cur)
         cur.execute(
-            'INSERT INTO users (username,email,password,height,goal_weight,age,gender) '
-            'VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id',
+            'INSERT INTO users (username,email,password,height,goal_weight,age,gender,friend_code) '
+            'VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id',
             (d['username'], d['email'], hash_pw(d['password']),
-             d.get('height'), d.get('goal_weight'), d.get('age'), d.get('gender'))
+             d.get('height'), d.get('goal_weight'), d.get('age'), d.get('gender'), friend_code)
         )
         uid = cur.fetchone()[0]
         conn.commit()
@@ -506,17 +518,177 @@ def me():
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute('SELECT * FROM users WHERE id = %s', (session['user_id'],))
     u = cur.fetchone()
-    cur.close(); conn.close()
     if not u:
+        cur.close(); conn.close()
         session.clear()
         return jsonify({'error': 'Unauthorized'}), 401
+
+    friend_code = u.get('friend_code')
+    if not friend_code:
+        plain_cur = conn.cursor()
+        friend_code = generate_unique_friend_code(plain_cur)
+        plain_cur.execute('UPDATE users SET friend_code = %s WHERE id = %s', (friend_code, u['id']))
+        conn.commit()
+        plain_cur.close()
+
+    cur.close(); conn.close()
     return jsonify({
         'id': u['id'], 'username': u['username'], 'email': u['email'],
         'is_premium': bool(u['is_premium']), 'height': u['height'],
         'goal_weight': u['goal_weight'], 'age': u['age'], 'gender': u['gender'],
         'activity_level': u.get('activity_level', 'moderate'),
         'created_at': u.get('created_at', ''),
+        'friend_code': friend_code,
     })
+
+
+@app.route('/api/friends/request', methods=['POST'])
+def friends_request():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Giriş yapmalısınız'}), 401
+    code = (request.json or {}).get('code', '').strip().upper()
+    if not code:
+        return jsonify({'error': 'Kod eksik'}), 400
+
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute('SELECT id, username FROM users WHERE friend_code = %s', (code,))
+    target = cur.fetchone()
+    if not target:
+        cur.close(); conn.close()
+        return jsonify({'error': 'Bu kodla eşleşen bir kullanıcı bulunamadı'}), 404
+    if target['id'] == session['user_id']:
+        cur.close(); conn.close()
+        return jsonify({'error': 'Kendini ekleyemezsin'}), 400
+
+    cur.execute('''
+        SELECT id, status FROM friendships
+        WHERE (requester_id = %s AND addressee_id = %s)
+           OR (requester_id = %s AND addressee_id = %s)
+    ''', (session['user_id'], target['id'], target['id'], session['user_id']))
+    existing = cur.fetchone()
+    if existing:
+        cur.close(); conn.close()
+        if existing['status'] == 'accepted':
+            return jsonify({'error': 'Zaten arkadaşsınız'}), 400
+        return jsonify({'error': 'Zaten bekleyen bir istek var'}), 400
+
+    plain_cur = conn.cursor()
+    plain_cur.execute(
+        'INSERT INTO friendships (requester_id, addressee_id, status) VALUES (%s, %s, %s)',
+        (session['user_id'], target['id'], 'pending')
+    )
+    conn.commit()
+    plain_cur.close(); cur.close(); conn.close()
+    return jsonify({'success': True, 'username': target['username']})
+
+
+@app.route('/api/friends/requests')
+def friends_requests():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Giriş yapmalısınız'}), 401
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute('''
+        SELECT f.id AS request_id, u.id AS user_id, u.username
+        FROM friendships f
+        JOIN users u ON u.id = f.requester_id
+        WHERE f.addressee_id = %s AND f.status = 'pending'
+        ORDER BY f.created_at DESC
+    ''', (session['user_id'],))
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route('/api/friends/respond', methods=['POST'])
+def friends_respond():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Giriş yapmalısınız'}), 401
+    d = request.json or {}
+    request_id = d.get('request_id')
+    accept = bool(d.get('accept'))
+
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute('SELECT * FROM friendships WHERE id = %s AND addressee_id = %s', (request_id, session['user_id']))
+    fr = cur.fetchone()
+    if not fr:
+        cur.close(); conn.close()
+        return jsonify({'error': 'İstek bulunamadı'}), 404
+
+    plain_cur = conn.cursor()
+    if accept:
+        plain_cur.execute("UPDATE friendships SET status = 'accepted' WHERE id = %s", (request_id,))
+    else:
+        plain_cur.execute('DELETE FROM friendships WHERE id = %s', (request_id,))
+    conn.commit()
+    plain_cur.close(); cur.close(); conn.close()
+    return jsonify({'success': True})
+
+
+@app.route('/api/friends')
+def friends_list():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Giriş yapmalısınız'}), 401
+    uid = session['user_id']
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute('''
+        SELECT CASE WHEN requester_id = %s THEN addressee_id ELSE requester_id END AS friend_id
+        FROM friendships
+        WHERE status = 'accepted' AND (requester_id = %s OR addressee_id = %s)
+    ''', (uid, uid, uid))
+    friend_ids = [r['friend_id'] for r in cur.fetchall()]
+
+    result = []
+    for fid in friend_ids:
+        cur.execute('SELECT id, username, goal_weight, height FROM users WHERE id = %s', (fid,))
+        fu = cur.fetchone()
+        if not fu:
+            continue
+        cur.execute('SELECT weight FROM weight_logs WHERE user_id = %s ORDER BY date DESC LIMIT 1', (fid,))
+        cw = cur.fetchone()
+        cur.execute('SELECT weight FROM weight_logs WHERE user_id = %s ORDER BY date ASC LIMIT 1', (fid,))
+        sw = cur.fetchone()
+        cur.execute('SELECT MAX(date) AS d FROM workout_logs WHERE user_id = %s', (fid,))
+        lw = cur.fetchone()
+        cur.execute(
+            "SELECT COUNT(*) AS c FROM workout_logs WHERE user_id = %s AND date >= (CURRENT_DATE - INTERVAL '7 days')::text",
+            (fid,)
+        )
+        wk = cur.fetchone()
+
+        current_weight = cw['weight'] if cw else None
+        start_weight = sw['weight'] if sw else None
+        lost = round(start_weight - current_weight, 1) if (start_weight is not None and current_weight is not None) else None
+
+        result.append({
+            'id': fu['id'],
+            'username': fu['username'],
+            'current_weight': current_weight,
+            'goal_weight': fu['goal_weight'],
+            'lost_kg': lost,
+            'last_workout': lw['d'] if lw else None,
+            'weekly_workouts': wk['c'] if wk else 0,
+        })
+
+    cur.close(); conn.close()
+    return jsonify(result)
+
+
+@app.route('/api/friends/<int:friend_id>', methods=['DELETE'])
+def friends_remove(friend_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Giriş yapmalısınız'}), 401
+    uid = session['user_id']
+    conn = get_db(); cur = conn.cursor()
+    cur.execute('''
+        DELETE FROM friendships
+        WHERE status = 'accepted' AND (
+            (requester_id = %s AND addressee_id = %s) OR
+            (requester_id = %s AND addressee_id = %s)
+        )
+    ''', (uid, friend_id, friend_id, uid))
+    conn.commit()
+    cur.close(); conn.close()
+    return jsonify({'success': True})
 
 
 @app.route('/dashboard')
