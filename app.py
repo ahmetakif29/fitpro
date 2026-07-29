@@ -72,6 +72,30 @@ def hash_pw(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
 
 
+@app.before_request
+def _touch_last_active():
+    """Giriş yapmış kullanıcının son aktif olduğu zamanı günceller.
+    Her isteğe yazmamak için en fazla 60 saniyede bir DB'ye dokunur."""
+    if 'user_id' not in session:
+        return
+    now = datetime.utcnow()
+    last_ping = session.get('_last_active_ping')
+    if last_ping:
+        try:
+            if (now - datetime.fromisoformat(last_ping)).total_seconds() < 60:
+                return
+        except Exception:
+            pass
+    try:
+        conn = get_db(); cur = conn.cursor()
+        cur.execute('UPDATE users SET last_active = NOW() WHERE id = %s', (session['user_id'],))
+        conn.commit()
+        cur.close(); conn.close()
+        session['_last_active_ping'] = now.isoformat()
+    except Exception as e:
+        print('last_active güncellenemedi:', e)
+
+
 def init_db():
     conn = get_db()
     cur = conn.cursor()
@@ -639,7 +663,7 @@ def friends_list():
 
     result = []
     for fid in friend_ids:
-        cur.execute('SELECT id, username, goal_weight, height FROM users WHERE id = %s', (fid,))
+        cur.execute('SELECT id, username, goal_weight, height, last_active FROM users WHERE id = %s', (fid,))
         fu = cur.fetchone()
         if not fu:
             continue
@@ -667,6 +691,7 @@ def friends_list():
             'lost_kg': lost,
             'last_workout': lw['d'] if lw else None,
             'weekly_workouts': wk['c'] if wk else 0,
+            'last_active': fu['last_active'].isoformat() if fu['last_active'] else None,
         })
 
     cur.close(); conn.close()
@@ -691,7 +716,7 @@ def friends_profile(friend_id):
         cur.close(); conn.close()
         return jsonify({'error': 'Bu kullanıcı arkadaşın değil'}), 403
 
-    cur.execute('SELECT id, username, goal_weight, height, created_at FROM users WHERE id = %s', (friend_id,))
+    cur.execute('SELECT id, username, goal_weight, height, created_at, last_active FROM users WHERE id = %s', (friend_id,))
     fu = cur.fetchone()
     if not fu:
         cur.close(); conn.close()
@@ -749,6 +774,7 @@ def friends_profile(friend_id):
         'last_workout': last_workout['d'] if last_workout else None,
         'streak': streak,
         'member_since': str(fu['created_at'])[:10] if fu.get('created_at') else None,
+        'last_active': fu['last_active'].isoformat() if fu.get('last_active') else None,
     })
 
 

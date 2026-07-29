@@ -945,6 +945,17 @@
   .friend-row:hover, .friend-row:active { background: var(--surface2); }
   .friend-row:last-child { border-bottom: none; }
   .friend-row .avatar { width: 42px; height: 42px; font-size: 1rem; flex-shrink: 0; }
+  .avatar-wrap { position: relative; flex-shrink: 0; }
+  .online-dot {
+    position: absolute;
+    bottom: 0; right: 0;
+    width: 11px; height: 11px;
+    background: var(--green);
+    border: 2px solid var(--surface);
+    border-radius: 50%;
+  }
+  .friend-row-active { font-size: 0.7rem; color: var(--muted); margin-top: 0.1rem; }
+  .friend-row-active.is-online { color: var(--green); font-weight: 600; }
   .friend-row-info { flex: 1; min-width: 0; overflow: hidden; }
   .friend-row-name { font-weight: 600; font-size: 0.92rem; margin-bottom: 0.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .friend-row-meta { font-size: 0.75rem; color: var(--muted); line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -962,6 +973,8 @@
     margin: 0 auto 0.9rem;
   }
   .fp-name { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.25rem; margin-bottom: 0.2rem; }
+  .fp-status { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.3rem; }
+  .fp-status.is-online { color: var(--green); font-weight: 600; }
   .fp-since { font-size: 0.78rem; color: var(--muted); margin-bottom: 1.4rem; }
 
   .fp-progress-wrap { margin-bottom: 1.4rem; text-align: left; }
@@ -3714,6 +3727,18 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
   let friendsPageData = { me: null, requests: [], friends: [] };
   let friendsActiveTab = 'friends';
 
+  function formatLastActive(iso) {
+    if (!iso) return { text: 'Hiç aktif olmadı', online: false };
+    const then = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
+    const diffSec = Math.floor((Date.now() - then.getTime()) / 1000);
+    if (diffSec < 180) return { text: 'Şu an aktif', online: true };
+    if (diffSec < 3600) return { text: `${Math.floor(diffSec/60)} dk önce aktifti`, online: false };
+    if (diffSec < 86400) return { text: `${Math.floor(diffSec/3600)} saat önce aktifti`, online: false };
+    const days = Math.floor(diffSec / 86400);
+    if (days < 30) return { text: `${days} gün önce aktifti`, online: false };
+    return { text: 'Uzun süredir aktif değil', online: false };
+  }
+
   async function renderFriends() {
     const el = document.getElementById('friendsContent');
     el.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--muted);">Yükleniyor...</div>`;
@@ -3797,12 +3822,17 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
         ? Math.abs(Math.round((f.current_weight - f.goal_weight) * 10) / 10) : null;
       let meta = f.current_weight != null ? `${f.current_weight} kg` : 'Henüz veri yok';
       if (remaining != null) meta += ` · hedefe ${remaining} kg`;
+      const la = formatLastActive(f.last_active);
       return `
       <div class="friend-row" onclick="openFriendProfile(${f.id})">
-        <div class="avatar">${(f.username||'?').charAt(0).toUpperCase()}</div>
+        <div class="avatar-wrap">
+          <div class="avatar">${(f.username||'?').charAt(0).toUpperCase()}</div>
+          ${la.online ? '<span class="online-dot"></span>' : ''}
+        </div>
         <div class="friend-row-info">
           <div class="friend-row-name">${f.username}</div>
           <div class="friend-row-meta">${meta}</div>
+          <div class="friend-row-active ${la.online ? 'is-online' : ''}">${la.text}</div>
         </div>
         <div class="friend-row-chevron">›</div>
       </div>
@@ -3878,9 +3908,12 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
       </div>
     ` : '';
 
+    const la = formatLastActive(p.last_active);
+
     el.innerHTML = `
       <div class="fp-avatar">${(p.username||'?').charAt(0).toUpperCase()}</div>
       <div class="fp-name">${p.username}</div>
+      <div class="fp-status ${la.online ? 'is-online' : ''}">${la.online ? '🟢' : '⚪'} ${la.text}</div>
       <div class="fp-since">${p.member_since ? 'Üyelik: ' + p.member_since : ''}</div>
 
       ${progressHtml}
