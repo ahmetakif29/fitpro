@@ -673,6 +673,85 @@ def friends_list():
     return jsonify(result)
 
 
+@app.route('/api/friends/<int:friend_id>/profile')
+def friends_profile(friend_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Giriş yapmalısınız'}), 401
+    uid = session['user_id']
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    cur.execute('''
+        SELECT 1 FROM friendships
+        WHERE status = 'accepted' AND (
+            (requester_id = %s AND addressee_id = %s) OR
+            (requester_id = %s AND addressee_id = %s)
+        )
+    ''', (uid, friend_id, friend_id, uid))
+    if not cur.fetchone():
+        cur.close(); conn.close()
+        return jsonify({'error': 'Bu kullanıcı arkadaşın değil'}), 403
+
+    cur.execute('SELECT id, username, goal_weight, height, created_at FROM users WHERE id = %s', (friend_id,))
+    fu = cur.fetchone()
+    if not fu:
+        cur.close(); conn.close()
+        return jsonify({'error': 'Kullanıcı bulunamadı'}), 404
+
+    cur.execute('SELECT weight FROM weight_logs WHERE user_id = %s ORDER BY date DESC LIMIT 1', (friend_id,))
+    cw = cur.fetchone()
+    cur.execute('SELECT weight FROM weight_logs WHERE user_id = %s ORDER BY date ASC LIMIT 1', (friend_id,))
+    sw = cur.fetchone()
+    cur.execute('SELECT COUNT(*) AS c FROM workout_logs WHERE user_id = %s', (friend_id,))
+    total_workouts = cur.fetchone()
+    cur.execute(
+        "SELECT COUNT(*) AS c FROM workout_logs WHERE user_id = %s AND date >= (CURRENT_DATE - INTERVAL '7 days')::text",
+        (friend_id,)
+    )
+    weekly = cur.fetchone()
+    cur.execute('SELECT MAX(date) AS d FROM workout_logs WHERE user_id = %s', (friend_id,))
+    last_workout = cur.fetchone()
+
+    # basit ardışık gün serisi (son 14 gün içinde)
+    cur.execute("SELECT DISTINCT date FROM workout_logs WHERE user_id = %s ORDER BY date DESC LIMIT 14", (friend_id,))
+    dates = {str(row['date'])[:10] for row in cur.fetchall()}
+    streak = 0
+    d = date.today()
+    while str(d) in dates:
+        streak += 1
+        d -= timedelta(days=1)
+
+    cur.close(); conn.close()
+
+    current_weight = cw['weight'] if cw else None
+    start_weight = sw['weight'] if sw else None
+    lost_kg = round(start_weight - current_weight, 1) if (start_weight is not None and current_weight is not None) else None
+    remaining_kg = round(abs(current_weight - fu['goal_weight']), 1) if (current_weight is not None and fu['goal_weight']) else None
+
+    progress_pct = None
+    if start_weight is not None and current_weight is not None and fu['goal_weight']:
+        total_needed = abs(start_weight - fu['goal_weight'])
+        done = abs(start_weight - current_weight)
+        if total_needed > 0:
+            progress_pct = max(0, min(100, round(done / total_needed * 100)))
+
+    return jsonify({
+        'id': fu['id'],
+        'username': fu['username'],
+        'height': fu['height'],
+        'goal_weight': fu['goal_weight'],
+        'current_weight': current_weight,
+        'start_weight': start_weight,
+        'lost_kg': lost_kg,
+        'remaining_kg': remaining_kg,
+        'progress_pct': progress_pct,
+        'total_workouts': total_workouts['c'] if total_workouts else 0,
+        'weekly_workouts': weekly['c'] if weekly else 0,
+        'last_workout': last_workout['d'] if last_workout else None,
+        'streak': streak,
+        'member_since': str(fu['created_at'])[:10] if fu.get('created_at') else None,
+    })
+
+
 @app.route('/api/friends/<int:friend_id>', methods=['DELETE'])
 def friends_remove(friend_id):
     if 'user_id' not in session:
