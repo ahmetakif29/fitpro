@@ -3817,19 +3817,21 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
     if (tab === 'code') {
       contentEl.innerHTML = `
         <div class="card" style="margin-bottom:1.25rem;border-color:#7c5cfc40;background:linear-gradient(145deg,#7c5cfc0c,var(--surface));">
-          <div style="font-size:0.78rem;color:var(--muted);font-weight:600;letter-spacing:0.3px;margin-bottom:0.9rem;">SENİN ARKADAŞLIK KODUN</div>
-          <div style="text-align:center;">
+          <div class="card-body" style="text-align:center;">
+            <div style="font-size:0.78rem;color:var(--muted);font-weight:600;letter-spacing:0.3px;margin-bottom:0.9rem;">SENİN ARKADAŞLIK KODUN</div>
             <div class="friend-code-display" style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:5px;color:var(--accent2);">${me.friend_code || '-----'}</div>
             <button class="btn btn-accent" style="margin-top:1rem;padding:0.6rem 1.4rem;font-size:0.82rem;" onclick="copyFriendCode('${me.friend_code || ''}')">📋 Kodu Kopyala</button>
+            <div style="font-size:0.76rem;color:var(--muted);margin-top:1rem;">Bu kodu arkadaşınla paylaş, seni bulup eklesin.</div>
           </div>
-          <div style="font-size:0.76rem;color:var(--muted);margin-top:1rem;text-align:center;">Bu kodu arkadaşınla paylaş, seni bulup eklesin.</div>
         </div>
 
         <div class="card">
-          <div style="font-size:0.78rem;color:var(--muted);font-weight:600;letter-spacing:0.3px;margin-bottom:0.6rem;">KOD İLE ARKADAŞ EKLE</div>
-          <div style="display:flex;gap:0.6rem;">
-            <input type="text" id="friendCodeInput" placeholder="Örn: A3F9K" maxlength="5" style="text-transform:uppercase;letter-spacing:2px;min-width:0;" onkeydown="if(event.key==='Enter')sendFriendRequest()">
-            <button class="btn btn-accent" style="white-space:nowrap;padding:0.75rem 1.1rem;flex-shrink:0;" onclick="sendFriendRequest()">Ekle</button>
+          <div class="card-body">
+            <div style="font-size:0.78rem;color:var(--muted);font-weight:600;letter-spacing:0.3px;margin-bottom:0.6rem;">KOD İLE ARKADAŞ EKLE</div>
+            <div style="display:flex;gap:0.6rem;">
+              <input type="text" id="friendCodeInput" placeholder="Örn: A3F9K" maxlength="5" style="text-transform:uppercase;letter-spacing:2px;min-width:0;" onkeydown="if(event.key==='Enter')sendFriendRequest()">
+              <button class="btn btn-accent" style="white-space:nowrap;padding:0.75rem 1.1rem;flex-shrink:0;" onclick="sendFriendRequest()">Ekle</button>
+            </div>
           </div>
         </div>
       `;
@@ -3851,7 +3853,7 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
         </div>
       `).join('') : `<div style="color:var(--muted);font-size:0.85rem;padding:1rem 0;text-align:center;">Bekleyen istek yok.</div>`;
 
-      contentEl.innerHTML = `<div class="card">${requestsHtml}</div>`;
+      contentEl.innerHTML = `<div class="card"><div class="card-body">${requestsHtml}</div></div>`;
       return;
     }
 
@@ -3877,7 +3879,7 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
       </div>
     `; }).join('') : `<div style="color:var(--muted);font-size:0.85rem;padding:1.5rem 0;text-align:center;">Henüz arkadaşın yok.<br>"Davet Kodu" sekmesinden paylaş 👆</div>`;
 
-    contentEl.innerHTML = `<div class="card">${friendsHtml}</div>`;
+    contentEl.innerHTML = `<div class="card"><div class="card-body">${friendsHtml}</div></div>`;
   }
 
   function copyFriendCode(code) {
@@ -4042,24 +4044,28 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
 
     contentEl.innerHTML = `
       <div class="card" style="margin-bottom:1.25rem;border-color:#7c5cfc40;background:linear-gradient(145deg,#7c5cfc0c,var(--surface));">
-        <div style="font-size:0.78rem;color:var(--muted);font-weight:600;letter-spacing:0.3px;margin-bottom:0.7rem;">SENİN ${PR_LABELS[exercise].toUpperCase()} PR'IN</div>
-        <div style="display:flex;gap:0.6rem;align-items:flex-end;flex-wrap:wrap;">
-          <div style="flex:1;min-width:80px;">
-            <label>Kilo (kg)</label>
-            <input type="number" id="prWeightInput" placeholder="Örn: 80" value="${mine ? mine.weight : ''}" min="1" step="0.5">
+        <div class="card-body">
+          <div style="font-size:0.78rem;color:var(--muted);font-weight:600;letter-spacing:0.3px;margin-bottom:0.9rem;text-align:center;">SENİN ${PR_LABELS[exercise].toUpperCase()} PR'IN</div>
+          <div style="display:flex;gap:0.6rem;">
+            <div style="flex:1;min-width:0;">
+              <label>Kilo (kg)</label>
+              <input type="number" id="prWeightInput" placeholder="Örn: 80" value="${mine ? mine.weight : ''}" min="1" step="0.5">
+            </div>
+            <div style="flex:1;min-width:0;">
+              <label>Tekrar</label>
+              <input type="number" id="prRepsInput" placeholder="Örn: 5" value="${mine ? mine.reps : ''}" min="1" step="1">
+            </div>
           </div>
-          <div style="flex:1;min-width:80px;">
-            <label>Tekrar</label>
-            <input type="number" id="prRepsInput" placeholder="Örn: 5" value="${mine ? mine.reps : ''}" min="1" step="1">
-          </div>
-          <button class="btn btn-accent" style="padding:0.75rem 1.1rem;white-space:nowrap;" onclick="savePR('${exercise}')">Kaydet</button>
+          <button class="btn btn-accent" style="width:100%;padding:0.8rem;margin-top:0.8rem;" onclick="savePR('${exercise}')">Kaydet</button>
+          ${mine ? `<div style="font-size:0.76rem;color:var(--muted);margin-top:0.9rem;text-align:center;">Tahmini 1RM: <b style="color:var(--accent2);">${mine.e1rm} kg</b><br>son güncelleme ${mine.updated_at}</div>` : ''}
         </div>
-        ${mine ? `<div style="font-size:0.76rem;color:var(--muted);margin-top:0.7rem;">Tahmini 1RM: <b style="color:var(--accent2);">${mine.e1rm} kg</b> · son güncelleme ${mine.updated_at}</div>` : ''}
       </div>
 
       <div class="card">
-        <div style="font-size:0.78rem;color:var(--muted);font-weight:600;letter-spacing:0.3px;margin-bottom:0.3rem;">🏆 ${PR_LABELS[exercise].toUpperCase()} SIRALAMASI</div>
-        ${rowsHtml}
+        <div class="card-body">
+          <div style="font-size:0.78rem;color:var(--muted);font-weight:600;letter-spacing:0.3px;margin-bottom:0.4rem;">🏆 ${PR_LABELS[exercise].toUpperCase()} SIRALAMASI</div>
+          ${rowsHtml}
+        </div>
       </div>
     `;
   }
