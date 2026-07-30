@@ -990,6 +990,68 @@
   }
   .lb-e1rm span { font-size: 0.65rem; color: var(--muted); font-weight: 500; display: block; }
 
+  .exercise-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    padding: 0.4rem 0.85rem;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .exercise-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .exercise-pick-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 0.3rem;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    border-radius: 10px;
+    transition: background 0.15s;
+  }
+  .exercise-pick-row:hover, .exercise-pick-row:active { background: var(--surface2); }
+  .exercise-pick-row:last-child { border-bottom: none; }
+  .exercise-pick-icon {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.05rem;
+    flex-shrink: 0;
+  }
+
+  .day-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+  }
+  .day-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.2rem;
+    cursor: pointer;
+  }
+  .day-card-date { font-weight: 600; font-size: 0.9rem; text-transform: capitalize; }
+  .day-card-summary { font-size: 0.76rem; color: var(--muted); margin-top: 0.2rem; }
+  .day-card-chevron { color: var(--muted); font-size: 1.2rem; transition: transform 0.25s; flex-shrink: 0; }
+  .day-card-chevron.open { transform: rotate(90deg); }
+  .day-card-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    padding: 0 1.2rem;
+  }
+  .day-card-body.open { max-height: 1000px; padding: 0 1.2rem 0.6rem; }
+  .day-card-body .log-row { padding: 0.6rem 0; }
+
   .fp-avatar {
     width: 72px; height: 72px;
     border-radius: 18px;
@@ -1183,6 +1245,7 @@
     }
 
     .card-body { padding: 1rem; }
+    #workoutLogs { padding: 0.75rem 1rem 1rem !important; }
     .chart-wrap { height: 200px; }
 
     .log-row {
@@ -1451,7 +1514,7 @@
         <div class="card-header">
           <div class="card-title">Antrenman Geçmişi</div>
         </div>
-        <div id="workoutLogs">
+        <div id="workoutLogs" style="padding: 1rem 1.5rem 1.5rem;">
           <div class="loading"><div class="spinner"></div> Yükleniyor...</div>
         </div>
       </div>
@@ -1545,10 +1608,23 @@
 </div>
 
 <!-- Add Workout Modal -->
+<div class="modal-overlay" id="exercisePickerModal">
+  <div class="modal" style="max-width:480px;">
+    <button class="modal-close" onclick="closeModal('exercisePickerModal')">✕</button>
+    <div class="modal-title">Hareket Seç</div>
+    <input type="text" id="exerciseSearch" placeholder="🔍 Hareket ara..." style="margin-bottom:0.9rem;" oninput="renderExercisePicker()">
+    <div id="exerciseCategoryChips" style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:1rem;"></div>
+    <div id="exerciseList" style="max-height:50vh;overflow-y:auto;"></div>
+    <div style="text-align:center;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
+      <button class="btn" style="background:var(--surface2);width:100%;" onclick="openCustomWorkout()">✏️ Listede Yok, Özel Antrenman Ekle</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="workoutModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('workoutModal')">✕</button>
-    <div class="modal-title">Antrenman Ekle</div>
+    <div class="modal-title" id="workoutModalTitle">Antrenman Ekle</div>
     <div class="form-group">
       <label>Antrenman Adı</label>
       <input type="text" id="woName" placeholder="Göğüs Günü, Kardio...">
@@ -1571,13 +1647,14 @@
     <div class="form-row">
       <div class="form-group">
         <label>Süre (dk)</label>
-        <input type="number" id="woDuration" placeholder="60">
+        <input type="number" id="woDuration" placeholder="60" oninput="updateAutoCalories()">
       </div>
       <div class="form-group">
         <label>Yakılan Kalori</label>
         <input type="number" id="woCalories" placeholder="350">
       </div>
     </div>
+    <div id="autoCalorieHint" style="display:none;font-size:0.76rem;color:var(--green);margin:-0.5rem 0 1rem;">🔥 Süreye göre otomatik hesaplanıyor, istersen elle değiştirebilirsin.</div>
     <div class="form-group">
       <label>Notlar</label>
       <textarea id="woNotes" placeholder="PR kırdım! Bench press 80kg..."></textarea>
@@ -1803,6 +1880,79 @@
   let currentUser = null;
   let weightData = [];
   let workoutData = [];
+
+  // ── Egzersiz Veritabanı (kategori, hareket, MET değeri) ────────────────────
+  const EXERCISE_DB = {
+    'Göğüs': { icon: '💪', type: 'strength', exercises: [
+      { name: 'Bench Press', met: 6 },
+      { name: 'Eğimli Bench Press (Incline)', met: 6 },
+      { name: 'Dambıl Press', met: 5.5 },
+      { name: 'Dambıl Fly', met: 4 },
+      { name: 'Cable Crossover', met: 4 },
+      { name: 'Şınav (Push-up)', met: 8 },
+      { name: 'Dips (Paralel Bar)', met: 8 },
+      { name: 'Pec Deck Makinesi', met: 4 },
+    ]},
+    'Sırt': { icon: '🔙', type: 'strength', exercises: [
+      { name: 'Deadlift', met: 6 },
+      { name: 'Barfiks (Pull-up)', met: 8 },
+      { name: 'Lat Pulldown', met: 5 },
+      { name: 'Barbell Row (Eğilerek Çekiş)', met: 6 },
+      { name: 'Seated Cable Row', met: 5 },
+      { name: 'T-Bar Row', met: 6 },
+      { name: 'Dambıl Row', met: 5.5 },
+      { name: 'Hyperextension', met: 4 },
+    ]},
+    'Bacak': { icon: '🦵', type: 'strength', exercises: [
+      { name: 'Squat', met: 6 },
+      { name: 'Leg Press', met: 5 },
+      { name: 'Romanian Deadlift', met: 6 },
+      { name: 'Lunges (Hamle Adımı)', met: 5.5 },
+      { name: 'Leg Extension', met: 4 },
+      { name: 'Leg Curl', met: 4 },
+      { name: 'Calf Raise (Baldır)', met: 4 },
+      { name: 'Hip Thrust', met: 5.5 },
+      { name: 'Bulgar Split Squat', met: 6 },
+    ]},
+    'Omuz': { icon: '🏔️', type: 'strength', exercises: [
+      { name: 'Overhead Press (Askeri Press)', met: 6 },
+      { name: 'Lateral Raise (Yana Kaldırma)', met: 3.5 },
+      { name: 'Front Raise (Öne Kaldırma)', met: 3.5 },
+      { name: 'Rear Delt Fly', met: 3.5 },
+      { name: 'Arnold Press', met: 5.5 },
+      { name: 'Shrugs (Trapez)', met: 4 },
+      { name: 'Face Pull', met: 3.5 },
+    ]},
+    'Kol': { icon: '💪', type: 'strength', exercises: [
+      { name: 'Barbell Curl', met: 3.5 },
+      { name: 'Dambıl Curl', met: 3.5 },
+      { name: 'Hammer Curl', met: 3.5 },
+      { name: 'Triceps Pushdown', met: 3.5 },
+      { name: 'Skull Crusher', met: 4 },
+      { name: 'Close Grip Bench Press', met: 6 },
+      { name: 'Preacher Curl', met: 3.5 },
+      { name: 'Triceps Dips', met: 6 },
+    ]},
+    'Karın': { icon: '🎯', type: 'strength', exercises: [
+      { name: 'Plank', met: 4 },
+      { name: 'Mekik (Crunch)', met: 4 },
+      { name: 'Hanging Leg Raise', met: 5 },
+      { name: 'Cable Crunch', met: 4 },
+      { name: 'Russian Twist', met: 4.5 },
+      { name: 'Ab Wheel Rollout', met: 5 },
+      { name: 'Bacak Makası (Scissors)', met: 4 },
+    ]},
+    'Kardio': { icon: '🏃', type: 'cardio', exercises: [
+      { name: 'Koşu Bandı', met: 8 },
+      { name: 'Bisiklet (Sabit)', met: 7 },
+      { name: 'Eliptik', met: 6 },
+      { name: 'İp Atlama', met: 10 },
+      { name: 'Kürek Makinesi (Rowing)', met: 7 },
+      { name: 'Merdiven (StairMaster)', met: 8 },
+      { name: 'Yürüyüş', met: 3.5 },
+      { name: 'Açık Hava Koşusu', met: 9 },
+    ]},
+  };
   let selectedPlan = 'monthly';
   let weightChartOverview = null;
   let weightChartFull = null;
@@ -1955,7 +2105,7 @@
 
     const btns = {
       weight: `<button class="btn btn-accent" onclick="openModal('weightModal')">+ Kilo Ekle</button>`,
-      workouts: `<button class="btn btn-accent" onclick="openModal('workoutModal')">+ Antrenman Ekle</button>`,
+      workouts: `<button class="btn btn-accent" onclick="openModal('exercisePickerModal')">+ Antrenman Ekle</button>`,
       nutrition: currentUser.is_premium ? `<button class="btn btn-accent" onclick="openModal('foodModal')">+ Yemek Ekle</button>` : '',
       measurements: currentUser.is_premium ? `<button class="btn btn-accent" onclick="openModal('measureModal')">+ Ölçü Ekle</button>` : ''
     };
@@ -2040,26 +2190,148 @@
 
   // ── Render: Workout Logs ──────────────────────────────────────────────────
 
+  let expandedWorkoutDates = new Set();
+
   function renderWorkoutLogs() {
     const el = document.getElementById('workoutLogs');
     if (!workoutData.length) {
       el.innerHTML = `<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Henüz antrenman kaydı yok</div></div>`;
       return;
     }
-    el.innerHTML = workoutData.map(w => `
-      <div class="log-row">
-        <div class="log-date">${formatDate(w.date)}</div>
-        <div class="log-main">
-          <strong>${w.name}</strong>
-          <div class="log-meta">
-            <span class="badge badge-${w.workout_type}">${typeLabel(w.workout_type)}</span>
-            ${w.duration ? ` · ${w.duration} dk` : ''}
-            ${w.calories_burned ? ` · ${w.calories_burned} kcal` : ''}
+
+    // Tarihe göre grupla
+    const groups = {};
+    workoutData.forEach(w => {
+      if (!groups[w.date]) groups[w.date] = [];
+      groups[w.date].push(w);
+    });
+    const dates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+
+    el.innerHTML = dates.map(d => {
+      const items = groups[d];
+      const totalCal = items.reduce((s, w) => s + (w.calories_burned || 0), 0);
+      const totalDur = items.reduce((s, w) => s + (w.duration || 0), 0);
+      const isOpen = expandedWorkoutDates.has(d);
+      return `
+      <div class="day-card">
+        <div class="day-card-header" onclick="toggleWorkoutDay('${d}')">
+          <div>
+            <div class="day-card-date">${formatDateLong(d)}</div>
+            <div class="day-card-summary">${items.length} hareket · ${totalDur} dk · ${totalCal} kcal</div>
           </div>
+          <div class="day-card-chevron ${isOpen ? 'open' : ''}">›</div>
         </div>
-        <button class="log-del" onclick="deleteWorkout(${w.id})">✕</button>
+        <div class="day-card-body ${isOpen ? 'open' : ''}">
+          ${items.map(w => `
+            <div class="log-row">
+              <div class="log-main">
+                <strong>${w.name}</strong>
+                <div class="log-meta">
+                  <span class="badge badge-${w.workout_type}">${typeLabel(w.workout_type)}</span>
+                  ${w.duration ? ` · ${w.duration} dk` : ''}
+                  ${w.calories_burned ? ` · ${w.calories_burned} kcal` : ''}
+                </div>
+              </div>
+              <button class="log-del" onclick="deleteWorkout(${w.id})">✕</button>
+            </div>
+          `).join('')}
+        </div>
       </div>
-    `).join('');
+    `; }).join('');
+  }
+
+  function toggleWorkoutDay(d) {
+    if (expandedWorkoutDates.has(d)) expandedWorkoutDates.delete(d);
+    else expandedWorkoutDates.add(d);
+    renderWorkoutLogs();
+  }
+
+  function formatDateLong(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric', weekday: 'long' });
+  }
+
+  // ── Hareket Seçici ────────────────────────────────────────────────────────
+  let selectedExerciseMET = null;
+
+  function getUserWeightKg() {
+    if (weightData && weightData.length) return weightData[weightData.length - 1].weight;
+    if (currentUser && currentUser.goal_weight) return currentUser.goal_weight;
+    return 70;
+  }
+
+  function renderExercisePicker() {
+    const chipsEl = document.getElementById('exerciseCategoryChips');
+    const listEl = document.getElementById('exerciseList');
+    const query = (document.getElementById('exerciseSearch').value || '').toLocaleLowerCase('tr-TR');
+
+    if (!chipsEl.dataset.built) {
+      chipsEl.innerHTML = Object.keys(EXERCISE_DB).map(cat => `
+        <button class="exercise-chip" data-cat="${cat}" onclick="filterExerciseCategory('${cat}')">${EXERCISE_DB[cat].icon} ${cat}</button>
+      `).join('');
+      chipsEl.dataset.built = '1';
+      chipsEl.dataset.active = '';
+    }
+    document.querySelectorAll('.exercise-chip').forEach(c => c.classList.toggle('active', c.dataset.cat === chipsEl.dataset.active));
+
+    let rows = [];
+    Object.keys(EXERCISE_DB).forEach(cat => {
+      if (chipsEl.dataset.active && chipsEl.dataset.active !== cat) return;
+      EXERCISE_DB[cat].exercises.forEach(ex => {
+        if (query && !ex.name.toLocaleLowerCase('tr-TR').includes(query)) return;
+        rows.push({ ...ex, category: cat, type: EXERCISE_DB[cat].type, icon: EXERCISE_DB[cat].icon });
+      });
+    });
+
+    listEl.innerHTML = rows.length ? rows.map(r => `
+      <div class="exercise-pick-row" onclick="selectExercise('${r.name.replace(/'/g,"")}', ${r.met}, '${r.type}', '${r.category}')">
+        <div class="exercise-pick-icon">${r.icon}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="friend-row-name">${r.name}</div>
+          <div class="friend-row-meta">${r.category} · MET ${r.met}</div>
+        </div>
+        <div class="friend-row-chevron">›</div>
+      </div>
+    `).join('') : `<div style="text-align:center;color:var(--muted);padding:1.5rem 0;">Hareket bulunamadı.</div>`;
+  }
+
+  function filterExerciseCategory(cat) {
+    const chipsEl = document.getElementById('exerciseCategoryChips');
+    chipsEl.dataset.active = (chipsEl.dataset.active === cat) ? '' : cat;
+    renderExercisePicker();
+  }
+
+  function selectExercise(name, met, type, category) {
+    selectedExerciseMET = met;
+    closeModal('exercisePickerModal');
+    document.getElementById('workoutModalTitle').textContent = '🏋️ ' + name;
+    document.getElementById('woName').value = name;
+    document.getElementById('woType').value = type;
+    document.getElementById('woDuration').value = '';
+    document.getElementById('woCalories').value = '';
+    document.getElementById('autoCalorieHint').style.display = 'block';
+    openModal('workoutModal');
+  }
+
+  function openCustomWorkout() {
+    selectedExerciseMET = null;
+    closeModal('exercisePickerModal');
+    document.getElementById('workoutModalTitle').textContent = 'Antrenman Ekle';
+    document.getElementById('woName').value = '';
+    document.getElementById('woType').value = 'strength';
+    document.getElementById('woDuration').value = '';
+    document.getElementById('woCalories').value = '';
+    document.getElementById('autoCalorieHint').style.display = 'none';
+    openModal('workoutModal');
+  }
+
+  function updateAutoCalories() {
+    if (selectedExerciseMET == null) return;
+    const duration = parseFloat(document.getElementById('woDuration').value);
+    if (!duration || duration <= 0) { document.getElementById('woCalories').value = ''; return; }
+    const weightKg = getUserWeightKg();
+    const calories = Math.round(selectedExerciseMET * 3.5 * weightKg / 200 * duration);
+    document.getElementById('woCalories').value = calories;
   }
 
   function renderRecentWorkouts() {
@@ -3059,6 +3331,12 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
   function openModal(id) {
     if (id === 'weightModal') document.getElementById('wDate').value = today;
     if (id === 'workoutModal') document.getElementById('woDate').value = today;
+    if (id === 'exercisePickerModal') {
+      document.getElementById('exerciseSearch').value = '';
+      const chipsEl = document.getElementById('exerciseCategoryChips');
+      chipsEl.dataset.active = '';
+      renderExercisePicker();
+    }
     if (id === 'foodModal') document.getElementById('foodDate').value = today;
     if (id === 'measureModal') document.getElementById('mDate').value = today;
     if (id === 'paymentModal') {
@@ -3088,7 +3366,10 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
     btn.style.cursor = allChecked ? 'pointer' : 'not-allowed';
   }
 
-  function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('active');
+    if (id === 'workoutModal') { selectedExerciseMET = null; document.getElementById('autoCalorieHint').style.display = 'none'; }
+  }
 
   document.querySelectorAll('.modal-overlay').forEach(m => {
     m.addEventListener('click', function(e) {
