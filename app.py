@@ -796,6 +796,103 @@ def friends_remove(friend_id):
     return jsonify({'success': True})
 
 
+PR_EXERCISES = ('bench', 'squat', 'deadlift')
+
+
+def estimate_1rm(weight, reps):
+    """Epley formülü: 1 tekrarlık tahmini maksimum."""
+    reps = max(1, int(reps))
+    return round(float(weight) * (1 + reps / 30.0), 1)
+
+
+@app.route('/api/prs/me')
+def prs_me():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Giriş yapmalısınız'}), 401
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute('SELECT exercise, weight, reps, updated_at FROM personal_records WHERE user_id = %s', (session['user_id'],))
+    rows = {r['exercise']: {
+        'weight': r['weight'], 'reps': r['reps'],
+        'e1rm': estimate_1rm(r['weight'], r['reps']),
+        'updated_at': str(r['updated_at'])[:10] if r['updated_at'] else None,
+    } for r in cur.fetchall()}
+    cur.close(); conn.close()
+    return jsonify(rows)
+
+
+@app.route('/api/prs', methods=['POST'])
+def prs_save():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Giriş yapmalısınız'}), 401
+    d = request.json or {}
+    exercise = (d.get('exercise') or '').strip().lower()
+    weight = d.get('weight')
+    reps = d.get('reps') or 1
+    if exercise not in PR_EXERCISES:
+        return jsonify({'error': 'Geçersiz hareket'}), 400
+    try:
+        weight = float(weight)
+        reps = int(reps)
+        if weight <= 0 or reps <= 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Geçersiz kilo/tekrar değeri'}), 400
+
+    conn = get_db(); cur = conn.cursor()
+    cur.execute('''
+        INSERT INTO personal_records (user_id, exercise, weight, reps, updated_at)
+        VALUES (%s, %s, %s, %s, NOW())
+        ON CONFLICT (user_id, exercise)
+        DO UPDATE SET weight = EXCLUDED.weight, reps = EXCLUDED.reps, updated_at = NOW()
+    ''', (session['user_id'], exercise, weight, reps))
+    conn.commit()
+    cur.close(); conn.close()
+    return jsonify({'success': True, 'e1rm': estimate_1rm(weight, reps)})
+
+
+@app.route('/api/prs/leaderboard')
+def prs_leaderboard():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Giriş yapmalısınız'}), 401
+    exercise = (request.args.get('exercise') or '').strip().lower()
+    if exercise not in PR_EXERCISES:
+        return jsonify({'error': 'Geçersiz hareket'}), 400
+
+    uid = session['user_id']
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute('''
+        SELECT CASE WHEN requester_id = %s THEN addressee_id ELSE requester_id END AS friend_id
+        FROM friendships
+        WHERE status = 'accepted' AND (requester_id = %s OR addressee_id = %s)
+    ''', (uid, uid, uid))
+    ids = [r['friend_id'] for r in cur.fetchall()] + [uid]
+
+    rows = []
+    for pid in ids:
+        cur.execute('SELECT username FROM users WHERE id = %s', (pid,))
+        u = cur.fetchone()
+        if not u:
+            continue
+        cur.execute('SELECT weight, reps, updated_at FROM personal_records WHERE user_id = %s AND exercise = %s', (pid, exercise))
+        pr = cur.fetchone()
+        if not pr:
+            continue
+        rows.append({
+            'user_id': pid,
+            'username': u['username'],
+            'weight': pr['weight'],
+            'reps': pr['reps'],
+            'e1rm': estimate_1rm(pr['weight'], pr['reps']),
+            'is_me': pid == uid,
+        })
+
+    cur.close(); conn.close()
+    rows.sort(key=lambda r: r['e1rm'], reverse=True)
+    for i, r in enumerate(rows):
+        r['rank'] = i + 1
+    return jsonify(rows)
+
+
 @app.route('/dashboard')
 def dashboard():
     if 'user_id' not in session:

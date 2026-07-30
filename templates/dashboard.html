@@ -961,6 +961,35 @@
   .friend-row-meta { font-size: 0.75rem; color: var(--muted); line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .friend-row-chevron { color: var(--muted); font-size: 1.1rem; flex-shrink: 0; }
 
+  .lb-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.8rem 0.4rem;
+    border-bottom: 1px solid var(--border);
+    border-radius: 10px;
+    min-width: 0;
+  }
+  .lb-row:last-child { border-bottom: none; }
+  .lb-row.lb-me { background: #7c5cfc14; border: 1px solid #7c5cfc33; }
+  .lb-rank {
+    width: 28px;
+    flex-shrink: 0;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--muted);
+  }
+  .lb-e1rm {
+    flex-shrink: 0;
+    text-align: right;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: var(--accent2);
+  }
+  .lb-e1rm span { font-size: 0.65rem; color: var(--muted); font-weight: 500; display: block; }
+
   .fp-avatar {
     width: 72px; height: 72px;
     border-radius: 18px;
@@ -1293,6 +1322,9 @@
   <button class="nav-item" onclick="showPage('friends')">
     <span class="icon">👥</span> Arkadaşlar
   </button>
+  <button class="nav-item" onclick="showPage('leaderboard')">
+    <span class="icon">🏋️</span> PR Liderlik
+  </button>
 
   <div class="nav-section-label">Premium</div>
   <button class="nav-item" onclick="showPage('nutrition')">
@@ -1463,6 +1495,11 @@
     <!-- FRIENDS PAGE -->
     <div class="page" id="page-friends">
       <div id="friendsContent"></div>
+    </div>
+
+    <!-- PR LEADERBOARD PAGE -->
+    <div class="page" id="page-leaderboard">
+      <div id="leaderboardContent"></div>
     </div>
 
     <!-- PREMIUM PAGE -->
@@ -1890,7 +1927,8 @@
     nutrition: 'Kalori & Makro Takibi',
     measurements: 'Vücut Ölçüleri',
     badges: '🏆 Rozetlerim',
-    friends: '👥 Arkadaşlar'
+    friends: '👥 Arkadaşlar',
+    leaderboard: '🏋️ PR Liderlik Tablosu'
   };
 
   function closeSidebar() {
@@ -1931,6 +1969,7 @@
     if (name === 'measurements') renderMeasurements();
     if (name === 'badges') renderBadges();
     if (name === 'friends') renderFriends();
+    if (name === 'leaderboard') renderLeaderboard();
     if (name === 'premium') renderPremiumPage();
     if (name === 'weight') setTimeout(renderWeightChartFull, 100);
     if (name === 'overview') setTimeout(renderOverviewChart, 100);
@@ -3947,6 +3986,101 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
 
       <button class="btn" style="width:100%;background:none;border:1px solid var(--red);color:var(--red);padding:0.7rem;" onclick="removeFriend(${p.id}, '${(p.username||'').replace(/'/g,"")}')">Arkadaşlıktan Çıkar</button>
     `;
+  }
+
+  // ── PR Liderlik Tablosu ──────────────────────────────────────────────────
+  const PR_LABELS = { bench: 'Bench Press', squat: 'Squat', deadlift: 'Deadlift' };
+  let lbActiveExercise = 'bench';
+
+  function renderLeaderboard() {
+    const el = document.getElementById('leaderboardContent');
+    el.innerHTML = `
+      <div class="friends-tabs">
+        <button class="friends-tab" data-lb="bench" onclick="switchLeaderboardTab('bench')">Bench</button>
+        <button class="friends-tab" data-lb="squat" onclick="switchLeaderboardTab('squat')">Squat</button>
+        <button class="friends-tab" data-lb="deadlift" onclick="switchLeaderboardTab('deadlift')">Deadlift</button>
+      </div>
+      <div id="lbTabContent"></div>
+    `;
+    switchLeaderboardTab(lbActiveExercise);
+  }
+
+  async function switchLeaderboardTab(exercise) {
+    lbActiveExercise = exercise;
+    document.querySelectorAll('[data-lb]').forEach(b => b.classList.toggle('active', b.dataset.lb === exercise));
+
+    const contentEl = document.getElementById('lbTabContent');
+    if (!contentEl) return;
+    contentEl.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--muted);">Yükleniyor...</div>`;
+
+    let myPrs, list;
+    try {
+      const [meRes, lbRes] = await Promise.all([
+        fetch('/api/prs/me'), fetch('/api/prs/leaderboard?exercise=' + exercise)
+      ]);
+      myPrs = await meRes.json();
+      list = await lbRes.json();
+    } catch (e) {
+      contentEl.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--red);">Yüklenemedi, tekrar dene.</div>`;
+      return;
+    }
+
+    const mine = myPrs[exercise];
+    const medals = ['🥇', '🥈', '🥉'];
+
+    const rowsHtml = (list && list.length) ? list.map((r, i) => `
+      <div class="lb-row ${r.is_me ? 'lb-me' : ''}">
+        <div class="lb-rank">${medals[i] || (r.rank + '.')}</div>
+        <div class="avatar">${(r.username||'?').charAt(0).toUpperCase()}</div>
+        <div class="friend-row-info">
+          <div class="friend-row-name">${r.username}${r.is_me ? ' (sen)' : ''}</div>
+          <div class="friend-row-meta">${r.weight} kg × ${r.reps} tekrar</div>
+        </div>
+        <div class="lb-e1rm">${r.e1rm} <span>kg</span></div>
+      </div>
+    `).join('') : `<div style="color:var(--muted);font-size:0.85rem;padding:1.5rem 0;text-align:center;">Bu harekette henüz kimsenin PR'ı yok.<br>İlk sen ekle! 👇</div>`;
+
+    contentEl.innerHTML = `
+      <div class="card" style="margin-bottom:1.25rem;border-color:#7c5cfc40;background:linear-gradient(145deg,#7c5cfc0c,var(--surface));">
+        <div style="font-size:0.78rem;color:var(--muted);font-weight:600;letter-spacing:0.3px;margin-bottom:0.7rem;">SENİN ${PR_LABELS[exercise].toUpperCase()} PR'IN</div>
+        <div style="display:flex;gap:0.6rem;align-items:flex-end;flex-wrap:wrap;">
+          <div style="flex:1;min-width:80px;">
+            <label>Kilo (kg)</label>
+            <input type="number" id="prWeightInput" placeholder="Örn: 80" value="${mine ? mine.weight : ''}" min="1" step="0.5">
+          </div>
+          <div style="flex:1;min-width:80px;">
+            <label>Tekrar</label>
+            <input type="number" id="prRepsInput" placeholder="Örn: 5" value="${mine ? mine.reps : ''}" min="1" step="1">
+          </div>
+          <button class="btn btn-accent" style="padding:0.75rem 1.1rem;white-space:nowrap;" onclick="savePR('${exercise}')">Kaydet</button>
+        </div>
+        ${mine ? `<div style="font-size:0.76rem;color:var(--muted);margin-top:0.7rem;">Tahmini 1RM: <b style="color:var(--accent2);">${mine.e1rm} kg</b> · son güncelleme ${mine.updated_at}</div>` : ''}
+      </div>
+
+      <div class="card">
+        <div style="font-size:0.78rem;color:var(--muted);font-weight:600;letter-spacing:0.3px;margin-bottom:0.3rem;">🏆 ${PR_LABELS[exercise].toUpperCase()} SIRALAMASI</div>
+        ${rowsHtml}
+      </div>
+    `;
+  }
+
+  async function savePR(exercise) {
+    const weight = parseFloat(document.getElementById('prWeightInput').value);
+    const reps = parseInt(document.getElementById('prRepsInput').value);
+    if (!weight || weight <= 0 || !reps || reps <= 0) {
+      showToast('Geçerli bir kilo ve tekrar gir', true);
+      return;
+    }
+    try {
+      const res = await fetch('/api/prs', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ exercise, weight, reps })
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error || 'Kaydedilemedi', true); return; }
+      showToast('PR kaydedildi 💪');
+      switchLeaderboardTab(exercise);
+    } catch (e) { showToast('Bağlantı hatası', true); }
   }
 
   init();
