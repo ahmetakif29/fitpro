@@ -1655,6 +1655,7 @@
   <div class="modal" style="max-width:480px;">
     <button class="modal-close" onclick="cancelWorkoutBuilder()">✕</button>
     <div class="modal-title">Antrenmanı Oluştur</div>
+    <div id="wbWeightHint" style="font-size:0.75rem;color:var(--muted);margin-top:-0.8rem;margin-bottom:0.9rem;">⚖️ Hesaplamalar son kilona göre yapılıyor</div>
     <button class="btn" style="background:var(--surface2);width:100%;margin-bottom:1rem;font-size:0.82rem;padding:0.6rem;" onclick="backToPicker()">+ Hareket Ekle</button>
     <div id="wbExerciseList" style="max-height:38vh;overflow-y:auto;margin-bottom:1rem;"></div>
     <div class="form-group">
@@ -2007,14 +2008,18 @@
       { name: 'Bacak Makası (Scissors)', met: 4 },
     ]},
     'Kardio': { type: 'cardio', exercises: [
-      { name: 'Koşu Bandı', met: 8 },
-      { name: 'Bisiklet (Sabit)', met: 7 },
+      { name: 'Koşu Bandı', param: 'speedIncline', defaultSpeed: 8, defaultIncline: 1 },
+      { name: 'Bisiklet (Sabit)', param: 'pace', paceTiers: [
+        { label: 'Hafif Tempo', met: 5.5 }, { label: 'Orta Tempo', met: 7.5 }, { label: 'Yoğun Tempo', met: 10.5 }
+      ], defaultPaceIndex: 1 },
       { name: 'Eliptik', met: 6 },
-      { name: 'İp Atlama', met: 10 },
+      { name: 'İp Atlama', param: 'pace', paceTiers: [
+        { label: 'Yavaş Tempo', met: 8 }, { label: 'Orta Tempo', met: 10 }, { label: 'Hızlı Tempo', met: 12.3 }
+      ], defaultPaceIndex: 1 },
       { name: 'Kürek Makinesi (Rowing)', met: 7 },
       { name: 'Merdiven (StairMaster)', met: 8 },
-      { name: 'Yürüyüş', met: 3.5 },
-      { name: 'Açık Hava Koşusu', met: 9 },
+      { name: 'Yürüyüş', param: 'speedIncline', defaultSpeed: 5, defaultIncline: 0 },
+      { name: 'Açık Hava Koşusu', param: 'speedIncline', defaultSpeed: 9, defaultIncline: 0 },
     ]},
   };
   let selectedPlan = 'monthly';
@@ -2318,7 +2323,7 @@
 
   // ── Hareket Seçici (çoklu seçim) ────────────────────────────────────────────
   const AVG_MIN_PER_SET = 3; // set + dinlenme dahil ortalama süre tahmini
-  let selectedExercises = []; // { name, met, type, category, sets, cardioDuration }
+  let selectedExercises = []; // { name, category, type, met? | param+speed/incline | param+paceTiers/paceIndex, sets, cardioDuration }
 
   function getUserWeightKg() {
     if (weightData && weightData.length) return weightData[weightData.length - 1].weight;
@@ -2326,11 +2331,33 @@
     return 70;
   }
 
+  // ACSM metabolik denklemi: hız (km/h) ve eğime (%) göre gerçek MET tahmini
+  function estimateRunWalkMET(speedKmh, inclinePercent) {
+    speedKmh = parseFloat(speedKmh) || 0;
+    inclinePercent = parseFloat(inclinePercent) || 0;
+    const speedMMin = speedKmh * 1000 / 60;
+    const grade = inclinePercent / 100;
+    let vo2;
+    if (speedKmh < 6.5) {
+      vo2 = 0.1 * speedMMin + 1.8 * speedMMin * grade + 3.5; // yürüyüş denklemi
+    } else {
+      vo2 = 0.2 * speedMMin + 0.9 * speedMMin * grade + 3.5; // koşu denklemi
+    }
+    return Math.max(1, Math.round((vo2 / 3.5) * 10) / 10);
+  }
+
+  function getEffectiveMET(ex) {
+    if (ex.param === 'speedIncline') return estimateRunWalkMET(ex.speed, ex.incline);
+    if (ex.param === 'pace') return ex.paceTiers[ex.paceIndex].met;
+    return ex.met;
+  }
+
   function calcExerciseCalories(ex) {
     const weightKg = getUserWeightKg();
+    const met = getEffectiveMET(ex);
     const duration = ex.type === 'cardio' ? (parseFloat(ex.cardioDuration) || 0) : (parseInt(ex.sets) || 0) * AVG_MIN_PER_SET;
-    const calories = Math.round(ex.met * 3.5 * weightKg / 200 * duration);
-    return { duration, calories };
+    const calories = Math.round(met * 3.5 * weightKg / 200 * duration);
+    return { duration, calories, met };
   }
 
   function renderExercisePicker() {
@@ -2360,12 +2387,13 @@
 
     listEl.innerHTML = rows.length ? rows.map(r => {
       const isSelected = selectedExercises.some(s => s.name === r.name);
+      const metLabel = r.param ? 'Kişiye özel hesaplanır' : `MET ${r.met}`;
       return `
-      <div class="exercise-pick-row ${isSelected ? 'selected' : ''}" onclick="toggleExerciseSelection('${r.name.replace(/'/g,"")}', ${r.met}, '${r.type}', '${r.category}')">
+      <div class="exercise-pick-row ${isSelected ? 'selected' : ''}" onclick="toggleExerciseSelection('${r.name.replace(/'/g,"")}', '${r.category}')">
         <div class="exercise-pick-icon">${CATEGORY_ICONS[r.category]}</div>
         <div style="flex:1;min-width:0;">
           <div class="friend-row-name">${r.name}</div>
-          <div class="friend-row-meta">${r.category} · MET ${r.met}</div>
+          <div class="friend-row-meta">${r.category} · ${metLabel}</div>
         </div>
         <div class="exercise-pick-check ${isSelected ? 'checked' : ''}">${isSelected ? '✓' : ''}</div>
       </div>
@@ -2380,13 +2408,31 @@
     renderExercisePicker();
   }
 
-  function toggleExerciseSelection(name, met, type, category) {
+  function toggleExerciseSelection(name, category) {
     const idx = selectedExercises.findIndex(s => s.name === name);
     if (idx >= 0) {
       selectedExercises.splice(idx, 1);
-    } else {
-      selectedExercises.push({ name, met, type, category, sets: 3, cardioDuration: 20 });
+      renderExercisePicker();
+      return;
     }
+    const def = EXERCISE_DB[category].exercises.find(e => e.name === name);
+    const type = EXERCISE_DB[category].type;
+    const item = { name, category, type };
+
+    if (def.param === 'speedIncline') {
+      item.param = 'speedIncline';
+      item.speed = def.defaultSpeed;
+      item.incline = def.defaultIncline;
+    } else if (def.param === 'pace') {
+      item.param = 'pace';
+      item.paceTiers = def.paceTiers;
+      item.paceIndex = def.defaultPaceIndex;
+    } else {
+      item.met = def.met;
+    }
+
+    if (type === 'cardio') item.cardioDuration = 20; else item.sets = 3;
+    selectedExercises.push(item);
     renderExercisePicker();
   }
 
@@ -2438,23 +2484,47 @@
     listEl.innerHTML = selectedExercises.map((ex, i) => {
       const { duration, calories } = calcExerciseCalories(ex);
       totalCal += calories; totalDur += duration;
+
+      let inputsHtml;
+      if (ex.param === 'speedIncline') {
+        inputsHtml = `
+          <div style="display:flex;gap:0.5rem;margin-top:0.35rem;flex-wrap:wrap;">
+            <div><label style="margin:0;font-size:0.7rem;">Hız (km/h)</label><input type="number" value="${ex.speed}" step="0.5" min="1" style="width:66px;padding:0.4rem 0.5rem;font-size:0.8rem;" oninput="updateWbExercise(${i}, 'speed', this.value)"></div>
+            <div><label style="margin:0;font-size:0.7rem;">Eğim (%)</label><input type="number" value="${ex.incline}" step="0.5" min="0" style="width:60px;padding:0.4rem 0.5rem;font-size:0.8rem;" oninput="updateWbExercise(${i}, 'incline', this.value)"></div>
+            <div><label style="margin:0;font-size:0.7rem;">Süre (dk)</label><input type="number" value="${ex.cardioDuration}" min="1" style="width:60px;padding:0.4rem 0.5rem;font-size:0.8rem;" oninput="updateWbExercise(${i}, 'cardioDuration', this.value)"></div>
+          </div>`;
+      } else if (ex.param === 'pace') {
+        inputsHtml = `
+          <div style="display:flex;gap:0.5rem;margin-top:0.35rem;align-items:flex-end;flex-wrap:wrap;">
+            <div>
+              <label style="margin:0;font-size:0.7rem;">Tempo</label>
+              <select style="padding:0.4rem 0.5rem;font-size:0.8rem;" onchange="updateWbExercise(${i}, 'paceIndex', parseInt(this.value))">
+                ${ex.paceTiers.map((t, ti) => `<option value="${ti}" ${ti === ex.paceIndex ? 'selected' : ''}>${t.label}</option>`).join('')}
+              </select>
+            </div>
+            <div><label style="margin:0;font-size:0.7rem;">Süre (dk)</label><input type="number" value="${ex.cardioDuration}" min="1" style="width:60px;padding:0.4rem 0.5rem;font-size:0.8rem;" oninput="updateWbExercise(${i}, 'cardioDuration', this.value)"></div>
+          </div>`;
+      } else if (ex.type === 'cardio') {
+        inputsHtml = `
+          <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.3rem;">
+            <label style="margin:0;font-size:0.72rem;">Süre (dk)</label>
+            <input type="number" value="${ex.cardioDuration}" min="1" style="width:60px;padding:0.4rem 0.5rem;font-size:0.82rem;" oninput="updateWbExercise(${i}, 'cardioDuration', this.value)">
+          </div>`;
+      } else {
+        inputsHtml = `
+          <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.3rem;">
+            <label style="margin:0;font-size:0.72rem;">Set Sayısı</label>
+            <input type="number" value="${ex.sets}" min="1" style="width:60px;padding:0.4rem 0.5rem;font-size:0.82rem;" oninput="updateWbExercise(${i}, 'sets', this.value)">
+          </div>`;
+      }
+
       return `
       <div class="wb-exercise-row">
         <div class="exercise-pick-icon">${CATEGORY_ICONS[ex.category]}</div>
         <div style="flex:1;min-width:0;">
           <div class="friend-row-name">${ex.name}</div>
-          ${ex.type === 'cardio' ? `
-            <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.3rem;">
-              <label style="margin:0;font-size:0.72rem;">Süre (dk)</label>
-              <input type="number" value="${ex.cardioDuration}" min="1" style="width:60px;padding:0.4rem 0.5rem;font-size:0.82rem;" oninput="updateWbExercise(${i}, 'cardioDuration', this.value)">
-            </div>
-          ` : `
-            <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.3rem;">
-              <label style="margin:0;font-size:0.72rem;">Set Sayısı</label>
-              <input type="number" value="${ex.sets}" min="1" style="width:60px;padding:0.4rem 0.5rem;font-size:0.82rem;" oninput="updateWbExercise(${i}, 'sets', this.value)">
-            </div>
-          `}
-          <div style="font-size:0.72rem;color:var(--muted);margin-top:0.25rem;">≈ ${duration} dk · <span style="color:var(--accent2);font-weight:600;">${calories} kcal</span></div>
+          ${inputsHtml}
+          <div style="font-size:0.72rem;color:var(--muted);margin-top:0.3rem;">≈ ${duration} dk · <span style="color:var(--accent2);font-weight:600;">${calories} kcal</span></div>
         </div>
         <button class="log-del" onclick="removeWbExercise(${i})">✕</button>
       </div>
@@ -2462,6 +2532,8 @@
 
     document.getElementById('wbTotalCalories').textContent = totalCal;
     document.getElementById('wbTotalDuration').textContent = totalDur;
+    const weightHint = document.getElementById('wbWeightHint');
+    if (weightHint) weightHint.textContent = `Hesaplamalar son kaydettiğin ${getUserWeightKg()} kg kilona göre yapılıyor`;
   }
 
   function updateWbExercise(i, field, value) {
@@ -2475,6 +2547,13 @@
     renderWorkoutBuilder();
   }
 
+  function buildExerciseNote(ex) {
+    if (ex.param === 'speedIncline') return `${ex.speed} km/h · %${ex.incline} eğim`;
+    if (ex.param === 'pace') return ex.paceTiers[ex.paceIndex].label;
+    if (ex.type === 'cardio') return '';
+    return `${ex.sets} set`;
+  }
+
   async function saveWorkoutSession() {
     if (!selectedExercises.length) return;
     const wbDate = document.getElementById('wbDate').value || today;
@@ -2486,12 +2565,11 @@
       for (const ex of selectedExercises) {
         const { duration, calories } = calcExerciseCalories(ex);
         totalCal += calories;
-        const setInfo = ex.type === 'cardio' ? '' : `${ex.sets} set`;
         await fetch('/api/workouts', {
           method: 'POST', headers: {'Content-Type':'application/json'},
           body: JSON.stringify({
             name: ex.name, workout_type: ex.type, date: wbDate,
-            duration, calories_burned: calories, notes: setInfo
+            duration, calories_burned: calories, notes: buildExerciseNote(ex)
           })
         });
       }
