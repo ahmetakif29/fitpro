@@ -1003,6 +1003,8 @@
     white-space: nowrap;
   }
   .exercise-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .cat-icon-mini { display: inline-flex; width: 14px; height: 14px; vertical-align: -2px; }
+  .cat-icon-mini svg { width: 100%; height: 100%; }
 
   .exercise-pick-row {
     display: flex;
@@ -1012,18 +1014,41 @@
     border-bottom: 1px solid var(--border);
     cursor: pointer;
     border-radius: 10px;
-    transition: background 0.15s;
+    transition: background 0.15s, border-color 0.15s;
   }
   .exercise-pick-row:hover, .exercise-pick-row:active { background: var(--surface2); }
   .exercise-pick-row:last-child { border-bottom: none; }
+  .exercise-pick-row.selected { background: #7c5cfc14; }
   .exercise-pick-icon {
-    width: 38px; height: 38px;
-    border-radius: 10px;
-    background: var(--surface2);
+    width: 40px; height: 40px;
+    border-radius: 11px;
+    background: linear-gradient(135deg, var(--accent), var(--green2));
+    color: #fff;
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.05rem;
     flex-shrink: 0;
   }
+  .exercise-pick-icon svg { width: 20px; height: 20px; }
+  .exercise-pick-check {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: transparent;
+    transition: all 0.15s;
+  }
+  .exercise-pick-check.checked { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .wb-exercise-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.8rem 0.2rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .wb-exercise-row:last-child { border-bottom: none; }
 
   .day-card {
     background: var(--surface);
@@ -1612,12 +1637,40 @@
   <div class="modal" style="max-width:480px;">
     <button class="modal-close" onclick="closeModal('exercisePickerModal')">✕</button>
     <div class="modal-title">Hareket Seç</div>
+    <div style="font-size:0.78rem;color:var(--muted);margin-top:-0.8rem;margin-bottom:0.9rem;">Birden fazla hareket seçebilirsin, hepsi tek antrenman olarak kaydedilir.</div>
     <input type="text" id="exerciseSearch" placeholder="🔍 Hareket ara..." style="margin-bottom:0.9rem;" oninput="renderExercisePicker()">
-    <div id="exerciseCategoryChips" style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:1rem;"></div>
-    <div id="exerciseList" style="max-height:50vh;overflow-y:auto;"></div>
+    <div id="exerciseCategoryChips" style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:1rem;overflow-x:auto;"></div>
+    <div id="exerciseList" style="max-height:45vh;overflow-y:auto;"></div>
     <div style="text-align:center;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
       <button class="btn" style="background:var(--surface2);width:100%;" onclick="openCustomWorkout()">✏️ Listede Yok, Özel Antrenman Ekle</button>
     </div>
+    <div id="pickerFooter" style="display:none;align-items:center;justify-content:space-between;gap:0.8rem;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
+      <div id="pickerFooterCount" style="font-size:0.82rem;color:var(--muted);"></div>
+      <button class="btn btn-accent" style="padding:0.7rem 1.3rem;white-space:nowrap;" onclick="openWorkoutBuilder()">Devam Et →</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="workoutBuilderModal">
+  <div class="modal" style="max-width:480px;">
+    <button class="modal-close" onclick="cancelWorkoutBuilder()">✕</button>
+    <div class="modal-title">Antrenmanı Oluştur</div>
+    <button class="btn" style="background:var(--surface2);width:100%;margin-bottom:1rem;font-size:0.82rem;padding:0.6rem;" onclick="backToPicker()">+ Hareket Ekle</button>
+    <div id="wbExerciseList" style="max-height:38vh;overflow-y:auto;margin-bottom:1rem;"></div>
+    <div class="form-group">
+      <label>Tarih</label>
+      <input type="date" id="wbDate">
+    </div>
+    <div class="card" style="margin-bottom:1rem;">
+      <div class="card-body" style="text-align:center;padding:1rem;">
+        <div style="font-size:0.76rem;color:var(--muted);">TOPLAM</div>
+        <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.6rem;color:var(--accent2);margin-top:0.2rem;">
+          <span id="wbTotalCalories">0</span> kcal
+        </div>
+        <div style="font-size:0.76rem;color:var(--muted);margin-top:0.2rem;"><span id="wbTotalDuration">0</span> dk tahmini süre</div>
+      </div>
+    </div>
+    <button class="btn btn-accent" id="wbSaveBtn" style="width:100%;padding:0.85rem;" onclick="saveWorkoutSession()">Antrenmanı Kaydet</button>
   </div>
 </div>
 
@@ -1647,7 +1700,7 @@
     <div class="form-row">
       <div class="form-group">
         <label>Süre (dk)</label>
-        <input type="number" id="woDuration" placeholder="60" oninput="updateAutoCalories()">
+        <input type="number" id="woDuration" placeholder="60">
       </div>
       <div class="form-group">
         <label>Yakılan Kalori</label>
@@ -1881,9 +1934,20 @@
   let weightData = [];
   let workoutData = [];
 
+  // ── Kategori İkonları (minimal SVG, emoji yerine) ──────────────────────────
+  const CATEGORY_ICONS = {
+    'Göğüs': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="9" width="3" height="6" rx="0.5"/><rect x="19" y="9" width="3" height="6" rx="0.5"/><path d="M5 11h1.5M17.5 11H19M6.5 11a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-2Z"/></svg>',
+    'Sırt': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v7"/><path d="M12 10 5 6M12 10l7-4"/><path d="M12 10v11"/><path d="M12 15l-5 4M12 15l5 4"/></svg>',
+    'Bacak': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h2l1 7-2 4 1 7H9l-1-6-3 6H3l3-8-1-6 1-4Z"/><path d="M14 3h2l1 4-1 6 2 8h-2l-2-6-1 6h-2l1-8-1-6 3-4Z" opacity="0"/></svg>',
+    'Omuz': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="M7 13 12 8l5 5"/><path d="M4 21h4M16 21h4"/></svg>',
+    'Kol': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15c2-1 3-3 3-6"/><path d="M7 9c1-2 3-3 5-2 3 1 2 5-1 5-2 0-2 3 1 4 2 1 5 0 6-3"/></svg>',
+    'Karın': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="3"/><path d="M6 9h12M6 14h12"/><path d="M12 3v18" opacity="0.5"/></svg>',
+    'Kardio': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l2-7 3 14 2.5-10 1.5 3h7"/></svg>',
+  };
+
   // ── Egzersiz Veritabanı (kategori, hareket, MET değeri) ────────────────────
   const EXERCISE_DB = {
-    'Göğüs': { icon: '💪', type: 'strength', exercises: [
+    'Göğüs': { type: 'strength', exercises: [
       { name: 'Bench Press', met: 6 },
       { name: 'Eğimli Bench Press (Incline)', met: 6 },
       { name: 'Dambıl Press', met: 5.5 },
@@ -1893,7 +1957,7 @@
       { name: 'Dips (Paralel Bar)', met: 8 },
       { name: 'Pec Deck Makinesi', met: 4 },
     ]},
-    'Sırt': { icon: '🔙', type: 'strength', exercises: [
+    'Sırt': { type: 'strength', exercises: [
       { name: 'Deadlift', met: 6 },
       { name: 'Barfiks (Pull-up)', met: 8 },
       { name: 'Lat Pulldown', met: 5 },
@@ -1903,7 +1967,7 @@
       { name: 'Dambıl Row', met: 5.5 },
       { name: 'Hyperextension', met: 4 },
     ]},
-    'Bacak': { icon: '🦵', type: 'strength', exercises: [
+    'Bacak': { type: 'strength', exercises: [
       { name: 'Squat', met: 6 },
       { name: 'Leg Press', met: 5 },
       { name: 'Romanian Deadlift', met: 6 },
@@ -1914,7 +1978,7 @@
       { name: 'Hip Thrust', met: 5.5 },
       { name: 'Bulgar Split Squat', met: 6 },
     ]},
-    'Omuz': { icon: '🏔️', type: 'strength', exercises: [
+    'Omuz': { type: 'strength', exercises: [
       { name: 'Overhead Press (Askeri Press)', met: 6 },
       { name: 'Lateral Raise (Yana Kaldırma)', met: 3.5 },
       { name: 'Front Raise (Öne Kaldırma)', met: 3.5 },
@@ -1923,7 +1987,7 @@
       { name: 'Shrugs (Trapez)', met: 4 },
       { name: 'Face Pull', met: 3.5 },
     ]},
-    'Kol': { icon: '💪', type: 'strength', exercises: [
+    'Kol': { type: 'strength', exercises: [
       { name: 'Barbell Curl', met: 3.5 },
       { name: 'Dambıl Curl', met: 3.5 },
       { name: 'Hammer Curl', met: 3.5 },
@@ -1933,7 +1997,7 @@
       { name: 'Preacher Curl', met: 3.5 },
       { name: 'Triceps Dips', met: 6 },
     ]},
-    'Karın': { icon: '🎯', type: 'strength', exercises: [
+    'Karın': { type: 'strength', exercises: [
       { name: 'Plank', met: 4 },
       { name: 'Mekik (Crunch)', met: 4 },
       { name: 'Hanging Leg Raise', met: 5 },
@@ -1942,7 +2006,7 @@
       { name: 'Ab Wheel Rollout', met: 5 },
       { name: 'Bacak Makası (Scissors)', met: 4 },
     ]},
-    'Kardio': { icon: '🏃', type: 'cardio', exercises: [
+    'Kardio': { type: 'cardio', exercises: [
       { name: 'Koşu Bandı', met: 8 },
       { name: 'Bisiklet (Sabit)', met: 7 },
       { name: 'Eliptik', met: 6 },
@@ -2228,6 +2292,7 @@
                 <strong>${w.name}</strong>
                 <div class="log-meta">
                   <span class="badge badge-${w.workout_type}">${typeLabel(w.workout_type)}</span>
+                  ${w.notes ? ` · ${w.notes}` : ''}
                   ${w.duration ? ` · ${w.duration} dk` : ''}
                   ${w.calories_burned ? ` · ${w.calories_burned} kcal` : ''}
                 </div>
@@ -2251,13 +2316,21 @@
     return d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric', weekday: 'long' });
   }
 
-  // ── Hareket Seçici ────────────────────────────────────────────────────────
-  let selectedExerciseMET = null;
+  // ── Hareket Seçici (çoklu seçim) ────────────────────────────────────────────
+  const AVG_MIN_PER_SET = 3; // set + dinlenme dahil ortalama süre tahmini
+  let selectedExercises = []; // { name, met, type, category, sets, cardioDuration }
 
   function getUserWeightKg() {
     if (weightData && weightData.length) return weightData[weightData.length - 1].weight;
     if (currentUser && currentUser.goal_weight) return currentUser.goal_weight;
     return 70;
+  }
+
+  function calcExerciseCalories(ex) {
+    const weightKg = getUserWeightKg();
+    const duration = ex.type === 'cardio' ? (parseFloat(ex.cardioDuration) || 0) : (parseInt(ex.sets) || 0) * AVG_MIN_PER_SET;
+    const calories = Math.round(ex.met * 3.5 * weightKg / 200 * duration);
+    return { duration, calories };
   }
 
   function renderExercisePicker() {
@@ -2267,7 +2340,9 @@
 
     if (!chipsEl.dataset.built) {
       chipsEl.innerHTML = Object.keys(EXERCISE_DB).map(cat => `
-        <button class="exercise-chip" data-cat="${cat}" onclick="filterExerciseCategory('${cat}')">${EXERCISE_DB[cat].icon} ${cat}</button>
+        <button class="exercise-chip" data-cat="${cat}" onclick="filterExerciseCategory('${cat}')">
+          <span class="cat-icon-mini">${CATEGORY_ICONS[cat]}</span> ${cat}
+        </button>
       `).join('');
       chipsEl.dataset.built = '1';
       chipsEl.dataset.active = '';
@@ -2279,20 +2354,24 @@
       if (chipsEl.dataset.active && chipsEl.dataset.active !== cat) return;
       EXERCISE_DB[cat].exercises.forEach(ex => {
         if (query && !ex.name.toLocaleLowerCase('tr-TR').includes(query)) return;
-        rows.push({ ...ex, category: cat, type: EXERCISE_DB[cat].type, icon: EXERCISE_DB[cat].icon });
+        rows.push({ ...ex, category: cat, type: EXERCISE_DB[cat].type });
       });
     });
 
-    listEl.innerHTML = rows.length ? rows.map(r => `
-      <div class="exercise-pick-row" onclick="selectExercise('${r.name.replace(/'/g,"")}', ${r.met}, '${r.type}', '${r.category}')">
-        <div class="exercise-pick-icon">${r.icon}</div>
+    listEl.innerHTML = rows.length ? rows.map(r => {
+      const isSelected = selectedExercises.some(s => s.name === r.name);
+      return `
+      <div class="exercise-pick-row ${isSelected ? 'selected' : ''}" onclick="toggleExerciseSelection('${r.name.replace(/'/g,"")}', ${r.met}, '${r.type}', '${r.category}')">
+        <div class="exercise-pick-icon">${CATEGORY_ICONS[r.category]}</div>
         <div style="flex:1;min-width:0;">
           <div class="friend-row-name">${r.name}</div>
           <div class="friend-row-meta">${r.category} · MET ${r.met}</div>
         </div>
-        <div class="friend-row-chevron">›</div>
+        <div class="exercise-pick-check ${isSelected ? 'checked' : ''}">${isSelected ? '✓' : ''}</div>
       </div>
-    `).join('') : `<div style="text-align:center;color:var(--muted);padding:1.5rem 0;">Hareket bulunamadı.</div>`;
+    `; }).join('') : `<div style="text-align:center;color:var(--muted);padding:1.5rem 0;">Hareket bulunamadı.</div>`;
+
+    updatePickerFooter();
   }
 
   function filterExerciseCategory(cat) {
@@ -2301,22 +2380,30 @@
     renderExercisePicker();
   }
 
-  function selectExercise(name, met, type, category) {
-    selectedExerciseMET = met;
-    closeModal('exercisePickerModal');
-    document.getElementById('workoutModalTitle').textContent = '🏋️ ' + name;
-    document.getElementById('woName').value = name;
-    document.getElementById('woType').value = type;
-    document.getElementById('woDuration').value = '';
-    document.getElementById('woCalories').value = '';
-    document.getElementById('autoCalorieHint').style.display = 'block';
-    openModal('workoutModal');
+  function toggleExerciseSelection(name, met, type, category) {
+    const idx = selectedExercises.findIndex(s => s.name === name);
+    if (idx >= 0) {
+      selectedExercises.splice(idx, 1);
+    } else {
+      selectedExercises.push({ name, met, type, category, sets: 3, cardioDuration: 20 });
+    }
+    renderExercisePicker();
+  }
+
+  function updatePickerFooter() {
+    const footer = document.getElementById('pickerFooter');
+    if (!footer) return;
+    if (selectedExercises.length > 0) {
+      footer.style.display = 'flex';
+      footer.querySelector('#pickerFooterCount').textContent = `${selectedExercises.length} hareket seçildi`;
+    } else {
+      footer.style.display = 'none';
+    }
   }
 
   function openCustomWorkout() {
-    selectedExerciseMET = null;
     closeModal('exercisePickerModal');
-    document.getElementById('workoutModalTitle').textContent = 'Antrenman Ekle';
+    document.getElementById('workoutModalTitle').textContent = 'Özel Antrenman Ekle';
     document.getElementById('woName').value = '';
     document.getElementById('woType').value = 'strength';
     document.getElementById('woDuration').value = '';
@@ -2325,13 +2412,98 @@
     openModal('workoutModal');
   }
 
-  function updateAutoCalories() {
-    if (selectedExerciseMET == null) return;
-    const duration = parseFloat(document.getElementById('woDuration').value);
-    if (!duration || duration <= 0) { document.getElementById('woCalories').value = ''; return; }
-    const weightKg = getUserWeightKg();
-    const calories = Math.round(selectedExerciseMET * 3.5 * weightKg / 200 * duration);
-    document.getElementById('woCalories').value = calories;
+  // ── Antrenman Oluşturucu (seçilen hareketler + set/süre + otomatik kcal) ──
+  function openWorkoutBuilder() {
+    if (!selectedExercises.length) return;
+    closeModal('exercisePickerModal');
+    document.getElementById('wbDate').value = today;
+    renderWorkoutBuilder();
+    openModal('workoutBuilderModal');
+  }
+
+  function backToPicker() {
+    closeModal('workoutBuilderModal');
+    openModal('exercisePickerModal');
+  }
+
+  function cancelWorkoutBuilder() {
+    selectedExercises = [];
+    closeModal('workoutBuilderModal');
+  }
+
+  function renderWorkoutBuilder() {
+    const listEl = document.getElementById('wbExerciseList');
+    let totalCal = 0, totalDur = 0;
+
+    listEl.innerHTML = selectedExercises.map((ex, i) => {
+      const { duration, calories } = calcExerciseCalories(ex);
+      totalCal += calories; totalDur += duration;
+      return `
+      <div class="wb-exercise-row">
+        <div class="exercise-pick-icon">${CATEGORY_ICONS[ex.category]}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="friend-row-name">${ex.name}</div>
+          ${ex.type === 'cardio' ? `
+            <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.3rem;">
+              <label style="margin:0;font-size:0.72rem;">Süre (dk)</label>
+              <input type="number" value="${ex.cardioDuration}" min="1" style="width:60px;padding:0.4rem 0.5rem;font-size:0.82rem;" oninput="updateWbExercise(${i}, 'cardioDuration', this.value)">
+            </div>
+          ` : `
+            <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.3rem;">
+              <label style="margin:0;font-size:0.72rem;">Set Sayısı</label>
+              <input type="number" value="${ex.sets}" min="1" style="width:60px;padding:0.4rem 0.5rem;font-size:0.82rem;" oninput="updateWbExercise(${i}, 'sets', this.value)">
+            </div>
+          `}
+          <div style="font-size:0.72rem;color:var(--muted);margin-top:0.25rem;">≈ ${duration} dk · <span style="color:var(--accent2);font-weight:600;">${calories} kcal</span></div>
+        </div>
+        <button class="log-del" onclick="removeWbExercise(${i})">✕</button>
+      </div>
+    `; }).join('');
+
+    document.getElementById('wbTotalCalories').textContent = totalCal;
+    document.getElementById('wbTotalDuration').textContent = totalDur;
+  }
+
+  function updateWbExercise(i, field, value) {
+    selectedExercises[i][field] = value;
+    renderWorkoutBuilder();
+  }
+
+  function removeWbExercise(i) {
+    selectedExercises.splice(i, 1);
+    if (!selectedExercises.length) { closeModal('workoutBuilderModal'); return; }
+    renderWorkoutBuilder();
+  }
+
+  async function saveWorkoutSession() {
+    if (!selectedExercises.length) return;
+    const wbDate = document.getElementById('wbDate').value || today;
+    const btn = document.getElementById('wbSaveBtn');
+    btn.disabled = true; btn.textContent = 'Kaydediliyor...';
+
+    let totalCal = 0;
+    try {
+      for (const ex of selectedExercises) {
+        const { duration, calories } = calcExerciseCalories(ex);
+        totalCal += calories;
+        const setInfo = ex.type === 'cardio' ? '' : `${ex.sets} set`;
+        await fetch('/api/workouts', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            name: ex.name, workout_type: ex.type, date: wbDate,
+            duration, calories_burned: calories, notes: setInfo
+          })
+        });
+      }
+      showToast(`Antrenman kaydedildi! Toplam ${totalCal} kcal 🔥`);
+      selectedExercises = [];
+      closeModal('workoutBuilderModal');
+      await loadWorkouts();
+      await loadStats();
+    } catch (e) {
+      showToast('Kaydedilirken hata oluştu', true);
+    }
+    btn.disabled = false; btn.textContent = 'Antrenmanı Kaydet';
   }
 
   function renderRecentWorkouts() {
@@ -3368,7 +3540,7 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
 
   function closeModal(id) {
     document.getElementById(id).classList.remove('active');
-    if (id === 'workoutModal') { selectedExerciseMET = null; document.getElementById('autoCalorieHint').style.display = 'none'; }
+    if (id === 'workoutModal') { document.getElementById('autoCalorieHint').style.display = 'none'; }
   }
 
   document.querySelectorAll('.modal-overlay').forEach(m => {
