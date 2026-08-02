@@ -128,7 +128,9 @@
     font-size: 0.9rem;
     color: #fff;
     flex-shrink: 0;
+    overflow: hidden;
   }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
 
   .user-info { flex: 1; min-width: 0; }
   .user-name { font-size: 0.85rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1202,7 +1204,9 @@
     font-size: 1.8rem;
     color: #fff;
     margin: 0 auto 0.9rem;
+    overflow: hidden;
   }
+  .fp-avatar img { width: 100%; height: 100%; object-fit: cover; }
   .fp-name { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.25rem; margin-bottom: 0.2rem; }
   .fp-status { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.3rem; }
   .fp-status.is-online { color: var(--green); font-weight: 600; }
@@ -2249,7 +2253,7 @@
     currentUser = await res.json();
     if (!currentUser || currentUser.error) { window.location.href = '/app'; return; }
 
-    document.getElementById('userAvatar').textContent = currentUser.username[0].toUpperCase();
+    document.getElementById('userAvatar').innerHTML = avatarInner(currentUser.username, currentUser.avatar_data);
     document.getElementById('userName').textContent = currentUser.username;
     document.getElementById('userPlan').innerHTML = currentUser.is_premium
       ? '<span class="premium-crown">👑</span> Premium'
@@ -3911,6 +3915,11 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
+  function avatarInner(username, avatarData) {
+    if (avatarData) return `<img src="${avatarData}" alt="${username||''}">`;
+    return `<span>${(username||'?').charAt(0).toUpperCase()}</span>`;
+  }
+
   function formatDate(dateStr) {
     const d = new Date(dateStr + 'T00:00:00');
     return d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' });
@@ -4024,7 +4033,7 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
       <div class="profile-header">
         <div class="profile-avatar-wrap">
           <div class="profile-avatar" id="profileAvatarDisplay">
-            ${u.photo ? `<img src="${u.photo}" alt="avatar">` : `<span>${u.username[0].toUpperCase()}</span>`}
+            ${avatarInner(u.username, u.avatar_data)}
           </div>
           <label class="avatar-upload-btn" for="photoInput" title="Fotoğraf değiştir">📷</label>
           <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="handlePhotoUpload(this)">
@@ -4215,15 +4224,41 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
   function handlePhotoUpload(input) {
     const file = input.files[0];
     if (!file) return;
+    if (!file.type.startsWith('image/')) { showToast('Lütfen bir görsel dosyası seç', true); return; }
+
     const reader = new FileReader();
     reader.onload = function(e) {
-      const dataUrl = e.target.result;
-      // Avatar güncelle
-      document.getElementById('profileAvatarDisplay').innerHTML = `<img src="${dataUrl}" alt="avatar">`;
-      document.getElementById('userAvatar').style.background = 'none';
-      document.getElementById('userAvatar').innerHTML = `<img src="${dataUrl}" style="width:36px;height:36px;border-radius:10px;object-fit:cover;">`;
-      currentUser.photo = dataUrl;
-      showToast('📷 Fotoğraf güncellendi!');
+      const img = new Image();
+      img.onload = async function() {
+        // Kareye kırp ve küçült (max 300x300), dosya boyutunu makul tut
+        const size = 300;
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const minSide = Math.min(img.width, img.height);
+        const sx = (img.width - minSide) / 2;
+        const sy = (img.height - minSide) / 2;
+        ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+
+        // Anında göster
+        document.getElementById('profileAvatarDisplay').innerHTML = `<img src="${dataUrl}" alt="avatar">`;
+        document.getElementById('userAvatar').innerHTML = `<img src="${dataUrl}" alt="avatar">`;
+
+        try {
+          const res = await fetch('/api/profile/avatar', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ image: dataUrl })
+          });
+          const data = await res.json();
+          if (!res.ok) { showToast(data.error || 'Fotoğraf kaydedilemedi', true); return; }
+          currentUser.avatar_data = dataUrl;
+          showToast('📷 Fotoğraf güncellendi!');
+        } catch (err) {
+          showToast('Bağlantı hatası, fotoğraf kaydedilemedi', true);
+        }
+      };
+      img.src = e.target.result;
     };
     reader.readAsDataURL(file);
   }
@@ -4823,7 +4858,7 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
     if (tab === 'requests') {
       const requestsHtml = (requests && requests.length) ? requests.map(r => `
         <div class="friend-row" style="cursor:default;">
-          <div class="avatar">${(r.username||'?').charAt(0).toUpperCase()}</div>
+          <div class="avatar">${avatarInner(r.username, r.avatar_data)}</div>
           <div class="friend-row-info">
             <div class="friend-row-name">${r.username}</div>
             <div class="friend-row-meta">Arkadaşlık isteği gönderdi</div>
@@ -4849,7 +4884,7 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
       return `
       <div class="friend-row" onclick="openFriendProfile(${f.id})">
         <div class="avatar-wrap">
-          <div class="avatar">${(f.username||'?').charAt(0).toUpperCase()}</div>
+          <div class="avatar">${avatarInner(f.username, f.avatar_data)}</div>
           ${la.online ? '<span class="online-dot"></span>' : ''}
         </div>
         <div class="friend-row-info">
@@ -4934,7 +4969,7 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
     const la = formatLastActive(p.last_active);
 
     el.innerHTML = `
-      <div class="fp-avatar">${(p.username||'?').charAt(0).toUpperCase()}</div>
+      <div class="fp-avatar">${avatarInner(p.username, p.avatar_data)}</div>
       <div class="fp-name">${p.username}</div>
       <div class="fp-status ${la.online ? 'is-online' : ''}">${la.online ? '🟢' : '⚪'} ${la.text}</div>
       <div class="fp-since">${p.member_since ? 'Üyelik: ' + p.member_since : ''}</div>
@@ -5015,7 +5050,7 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
     const rowsHtml = (list && list.length) ? list.map((r, i) => `
       <div class="lb-row ${r.is_me ? 'lb-me' : ''}">
         <div class="lb-rank">${medals[i] || (r.rank + '.')}</div>
-        <div class="avatar">${(r.username||'?').charAt(0).toUpperCase()}</div>
+        <div class="avatar">${avatarInner(r.username, r.avatar_data)}</div>
         <div class="friend-row-info">
           <div class="friend-row-name">${r.username}${r.is_me ? ' (sen)' : ''}</div>
           <div class="friend-row-meta">${r.weight} kg × ${r.reps} tekrar</div>

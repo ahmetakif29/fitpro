@@ -33,6 +33,43 @@ def send_push_notification(fcm_token, title, body):
         print('Push gonderim hatasi:', e)
         return False
 
+
+def notify_friends_of_activity(user_id, activity_type):
+    """Kullanicinin kabul edilmis arkadaslarina, kullanicinin yeni aktivite
+    kaydettigini bildirir (ör. antrenman). Bildirim izni olmayanlar atlanir."""
+    try:
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute('SELECT username FROM users WHERE id = %s', (user_id,))
+        me_row = cur.fetchone()
+        if not me_row:
+            cur.close(); conn.close()
+            return
+        username = me_row['username']
+
+        cur.execute('''
+            SELECT CASE WHEN requester_id = %s THEN addressee_id ELSE requester_id END AS friend_id
+            FROM friendships
+            WHERE status = 'accepted' AND (requester_id = %s OR addressee_id = %s)
+        ''', (user_id, user_id, user_id))
+        friend_ids = [r['friend_id'] for r in cur.fetchall()]
+
+        if not friend_ids:
+            cur.close(); conn.close()
+            return
+
+        titles = {'workout': ('Arkadaşın Antrenmanda! 💪', f'{username} bugün bir antrenman kaydetti')}
+        title, body = titles.get(activity_type, ('Arkadaş Aktivitesi', f'{username} yeni bir kayıt ekledi'))
+
+        for fid in friend_ids:
+            cur.execute('SELECT fcm_token FROM users WHERE id = %s', (fid,))
+            row = cur.fetchone()
+            if row and row.get('fcm_token'):
+                send_push_notification(row['fcm_token'], title, body)
+
+        cur.close(); conn.close()
+    except Exception as e:
+        print('notify_friends_of_activity hatasi:', e)
+
 # ====================== SHOPIER AYARLARI ======================
 SHOPIER_API_KEY        = os.environ.get('SHOPIER_API_KEY', '')
 SHOPIER_API_SECRET     = os.environ.get('SHOPIER_API_SECRET', '')
@@ -563,7 +600,26 @@ def me():
         'activity_level': u.get('activity_level', 'moderate'),
         'created_at': u.get('created_at', ''),
         'friend_code': friend_code,
+        'avatar_data': u.get('avatar_data'),
     })
+
+
+@app.route('/api/profile/avatar', methods=['POST'])
+def upload_avatar():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Giriş yapmalısınız'}), 401
+    d = request.json or {}
+    image = d.get('image', '')
+    if not image or not image.startswith('data:image/'):
+        return jsonify({'error': 'Geçersiz görsel verisi'}), 400
+    if len(image) > 700_000:  # ~500KB civarı, DB'yi şişirmesin
+        return jsonify({'error': 'Görsel çok büyük, daha küçük bir fotoğraf dene'}), 400
+
+    conn = get_db(); cur = conn.cursor()
+    cur.execute('UPDATE users SET avatar_data = %s WHERE id = %s', (image, session['user_id']))
+    conn.commit()
+    cur.close(); conn.close()
+    return jsonify({'success': True})
 
 
 @app.route('/api/friends/request', methods=['POST'])
@@ -602,7 +658,25 @@ def friends_request():
         (session['user_id'], target['id'], 'pending')
     )
     conn.commit()
-    plain_cur.close(); cur.close(); conn.close()
+    plain_cur.close()
+
+    # Karşı tarafa anında bildirim gönder (cron beklemeden)
+    cur.execute('SELECT username, fcm_token FROM users WHERE id = %s', (session['user_id'],))
+    me_row = cur.fetchone()
+    cur.close(); conn.close()
+
+    conn2 = get_db(); cur2 = conn2.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur2.execute('SELECT fcm_token FROM users WHERE id = %s', (target['id'],))
+    target_row = cur2.fetchone()
+    cur2.close(); conn2.close()
+
+    if target_row and target_row.get('fcm_token'):
+        send_push_notification(
+            target_row['fcm_token'],
+            'Yeni Arkadaşlık İsteği 🤝',
+            f"{me_row['username']} sana arkadaşlık isteği gönderdi"
+        )
+
     return jsonify({'success': True, 'username': target['username']})
 
 
@@ -612,7 +686,7 @@ def friends_requests():
         return jsonify({'error': 'Giriş yapmalısınız'}), 401
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute('''
-        SELECT f.id AS request_id, u.id AS user_id, u.username
+        SELECT f.id AS request_id, u.id AS user_id, u.username, u.avatar_data
         FROM friendships f
         JOIN users u ON u.id = f.requester_id
         WHERE f.addressee_id = %s AND f.status = 'pending'
@@ -663,7 +737,7 @@ def friends_list():
 
     result = []
     for fid in friend_ids:
-        cur.execute('SELECT id, username, goal_weight, height, last_active FROM users WHERE id = %s', (fid,))
+        cur.execute('SELECT id, username, goal_weight, height, last_active, avatar_data FROM users WHERE id = %s', (fid,))
         fu = cur.fetchone()
         if not fu:
             continue
@@ -692,6 +766,7 @@ def friends_list():
             'last_workout': lw['d'] if lw else None,
             'weekly_workouts': wk['c'] if wk else 0,
             'last_active': fu['last_active'].isoformat() if fu['last_active'] else None,
+            'avatar_data': fu.get('avatar_data'),
         })
 
     cur.close(); conn.close()
@@ -716,7 +791,7 @@ def friends_profile(friend_id):
         cur.close(); conn.close()
         return jsonify({'error': 'Bu kullanıcı arkadaşın değil'}), 403
 
-    cur.execute('SELECT id, username, goal_weight, height, created_at, last_active FROM users WHERE id = %s', (friend_id,))
+    cur.execute('SELECT id, username, goal_weight, height, created_at, last_active, avatar_data FROM users WHERE id = %s', (friend_id,))
     fu = cur.fetchone()
     if not fu:
         cur.close(); conn.close()
@@ -775,6 +850,7 @@ def friends_profile(friend_id):
         'streak': streak,
         'member_since': str(fu['created_at'])[:10] if fu.get('created_at') else None,
         'last_active': fu['last_active'].isoformat() if fu.get('last_active') else None,
+        'avatar_data': fu.get('avatar_data'),
     })
 
 
@@ -869,7 +945,7 @@ def prs_leaderboard():
 
     rows = []
     for pid in ids:
-        cur.execute('SELECT username FROM users WHERE id = %s', (pid,))
+        cur.execute('SELECT username, avatar_data FROM users WHERE id = %s', (pid,))
         u = cur.fetchone()
         if not u:
             continue
@@ -880,6 +956,7 @@ def prs_leaderboard():
         rows.append({
             'user_id': pid,
             'username': u['username'],
+            'avatar_data': u.get('avatar_data'),
             'weight': pr['weight'],
             'reps': pr['reps'],
             'e1rm': estimate_1rm(pr['weight'], pr['reps']),
@@ -963,15 +1040,28 @@ def get_workouts():
 def add_workout():
     if 'user_id' not in session: return jsonify({'error': 'Unauthorized'}), 401
     d = request.json
+    uid = session['user_id']
+    workout_date = d.get('date', date.today().isoformat())
+
     conn = get_db(); cur = conn.cursor()
+
+    # Bugün (ya da seçilen tarihte) bu kullanıcının ilk kaydı mı kontrol et
+    # (çoklu hareket eklerken arkadaşlara tek bildirim gitsin, her hareket için ayrı ayrı değil)
+    cur.execute('SELECT COUNT(*) FROM workout_logs WHERE user_id = %s AND date = %s', (uid, workout_date))
+    is_first_of_day = cur.fetchone()[0] == 0
+
     cur.execute(
         'INSERT INTO workout_logs (user_id,name,workout_type,date,duration,calories_burned,notes) '
         'VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id',
-        (session['user_id'], d['name'], d.get('workout_type', 'other'),
-         d.get('date', date.today().isoformat()), d.get('duration', 0),
+        (uid, d['name'], d.get('workout_type', 'other'),
+         workout_date, d.get('duration', 0),
          d.get('calories_burned', 0), d.get('notes', ''))
     )
     lid = cur.fetchone()[0]; conn.commit(); cur.close(); conn.close()
+
+    if is_first_of_day:
+        notify_friends_of_activity(uid, 'workout')
+
     return jsonify({'success': True, 'id': lid})
 
 
