@@ -1077,54 +1077,105 @@
   .day-card-body.open { max-height: 1000px; padding: 0 1.2rem 0.6rem; }
   .day-card-body .log-row { padding: 0.6rem 0; }
 
-  .wstat-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  .wa-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 0.6rem;
-    margin-bottom: 1.25rem;
+    margin-bottom: 0.9rem;
   }
-  .wstat-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 0.9rem 0.6rem;
+  .wa-week-nav { display: flex; align-items: center; gap: 0.6rem; }
+  .wa-nav-btn {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .wa-nav-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .wa-week-label { font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
+
+  .wa-toggle {
+    display: flex;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 3px;
+  }
+  .wa-toggle-btn {
+    background: none; border: none; color: var(--muted);
+    padding: 0.4rem 0.9rem; border-radius: 7px;
+    font-size: 0.78rem; font-weight: 500; cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.2s;
+  }
+  .wa-toggle-btn.active { background: var(--accent); color: #fff; }
+
+  .wa-metric-select { display: flex; gap: 0.4rem; }
+  .wa-metric-btn {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    padding: 0.5rem 0.4rem;
+    border-radius: 9px;
+    font-size: 0.76rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.2s;
+  }
+  .wa-metric-btn.active { font-weight: 700; }
+
+  .wa-day-picker {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.35rem;
+    margin-bottom: 1rem;
+  }
+  .wa-day-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    padding: 0.5rem 0.2rem;
+    border-radius: 10px;
+    font-size: 0.68rem;
+    cursor: pointer;
     text-align: center;
   }
-  .wstat-icon { font-size: 1.1rem; margin-bottom: 0.35rem; }
-  .wstat-value { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.25rem; color: var(--accent2); }
-  .wstat-value span { font-size: 0.62rem; color: var(--muted); font-weight: 500; margin-left: 0.15rem; }
-  .wstat-label { font-size: 0.62rem; color: var(--muted); margin-top: 0.25rem; line-height: 1.3; }
+  .wa-day-btn.has-data { border-color: #7c5cfc50; color: var(--text); }
+  .wa-day-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .wa-day-num { font-weight: 700; font-size: 0.78rem; margin-top: 0.15rem; }
 
-  .heatmap-legend { display: flex; align-items: center; gap: 0.25rem; font-size: 0.68rem; color: var(--muted); }
-  .heatmap-scroll { overflow-x: auto; }
-  .heatmap-months {
+  .wa-stats-grid {
     display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: 13px;
-    gap: 3px;
-    font-size: 0.65rem;
-    color: var(--muted);
-    margin-bottom: 0.3rem;
-    min-width: max-content;
+    grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
   }
-  .heatmap-grid {
-    display: grid;
-    grid-auto-flow: column;
-    gap: 3px;
-    min-width: max-content;
-  }
-  .heatmap-col { display: grid; grid-template-rows: repeat(7, 13px); gap: 3px; }
-  .heatmap-cell {
-    width: 13px; height: 13px;
-    border-radius: 3px;
+  .wa-stat {
     background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 0.65rem 0.4rem;
+    text-align: center;
   }
-  .heatmap-cell.future { background: transparent; }
-  .heatmap-cell[data-level="0"] { background: var(--surface2); }
-  .heatmap-cell[data-level="1"] { background: #7c5cfc30; }
-  .heatmap-cell[data-level="2"] { background: #7c5cfc60; }
-  .heatmap-cell[data-level="3"] { background: #7c5cfc95; }
-  .heatmap-cell[data-level="4"] { background: var(--accent); }
+  .wa-stat-value { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.05rem; color: var(--accent2); }
+  .wa-stat-value span { font-size: 0.6rem; color: var(--muted); font-weight: 500; margin-left: 0.1rem; }
+  .wa-stat-label { font-size: 0.6rem; color: var(--muted); margin-top: 0.2rem; line-height: 1.25; }
+
+  .wa-exercise-list { margin-top: 0.6rem; border-top: 1px solid var(--border); padding-top: 0.5rem; }
+  .wa-exercise-item {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.5rem 0.1rem;
+    font-size: 0.82rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .wa-exercise-item:last-child { border-bottom: none; }
 
   .confetti-layer { position: fixed; inset: 0; pointer-events: none; z-index: 9999; overflow: hidden; }
   .confetti-piece {
@@ -1615,8 +1666,7 @@
 
     <!-- WORKOUTS PAGE -->
     <div class="page" id="page-workouts">
-      <div id="workoutStatsWrap"></div>
-      <div id="workoutHeatmapWrap"></div>
+      <div id="workoutAnalyticsWrap"></div>
 
       <div class="card">
         <div class="card-header">
@@ -2322,8 +2372,7 @@
     workoutData = await res.json();
     renderWorkoutLogs();
     renderRecentWorkouts();
-    renderWorkoutStats();
-    renderWorkoutHeatmap();
+    renderWorkoutAnalytics();
   }
 
   // ── Render: Weight Logs ───────────────────────────────────────────────────
@@ -2348,135 +2397,211 @@
 
   // ── Render: Workout Logs ──────────────────────────────────────────────────
 
-  // ── Antrenman İstatistikleri (grafiksel özet) ──────────────────────────────
-  function renderWorkoutStats() {
-    const el = document.getElementById('workoutStatsWrap');
-    if (!el) return;
+  // ── Antrenman Analiz Paneli (Gün/Hafta, metrik seçilebilir çizgi grafik) ───
+  let waMode = 'day';        // 'day' | 'week'
+  let waMetric = 'kcal';     // 'kcal' | 'count' | 'sets'
+  let waWeekOffset = 0;      // 0 = bu hafta, -1 = geçen hafta...
+  let waSelectedDate = today;
+  let waChartInstance = null;
 
-    if (!workoutData.length) {
-      el.innerHTML = '';
-      return;
-    }
+  const WA_METRIC_META = {
+    kcal:  { label: 'Kalori',    unit: 'kcal', color: '#7c5cfc' },
+    count: { label: 'Antrenman', unit: '',     color: '#00e5a0' },
+    sets:  { label: 'Set',       unit: '',     color: '#ffd166' },
+  };
 
-    const sessionDates = [...new Set(workoutData.map(w => w.date))];
-    const totalSessions = sessionDates.length;
-    const totalDuration = workoutData.reduce((a, b) => a + (b.duration || 0), 0);
-    const totalKcal = workoutData.reduce((a, b) => a + (b.calories_burned || 0), 0);
-
-    let totalSets = 0;
-    workoutData.forEach(w => {
-      const m = (w.notes || '').match(/(\d+)\s*set/i);
-      if (m) totalSets += parseInt(m[1]);
-    });
-
-    const durationByDate = {};
-    workoutData.forEach(w => { durationByDate[w.date] = (durationByDate[w.date] || 0) + (w.duration || 0); });
-    const longestSession = Object.values(durationByDate).length ? Math.max(...Object.values(durationByDate)) : 0;
-
-    const categoryCounts = {};
-    workoutData.forEach(w => {
-      const cat = EXNAME_TO_CAT[w.name] || 'Diğer';
-      categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
-    });
-    const topCategory = Object.keys(categoryCounts).length
-      ? Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0][0] : '—';
-
+  function getWeekDays(offset) {
     const now = new Date();
-    const thisMonthDays = new Set(sessionDates.filter(d => {
-      const dd = new Date(d + 'T00:00:00');
-      return dd.getMonth() === now.getMonth() && dd.getFullYear() === now.getFullYear();
-    })).size;
-
-    el.innerHTML = `
-      <div class="wstat-grid">
-        <div class="wstat-card"><div class="wstat-icon">🏋️</div><div class="wstat-value">${totalSessions}</div><div class="wstat-label">Toplam Antrenman</div></div>
-        <div class="wstat-card"><div class="wstat-icon">🔢</div><div class="wstat-value">${totalSets}</div><div class="wstat-label">Toplam Set</div></div>
-        <div class="wstat-card"><div class="wstat-icon">⏱️</div><div class="wstat-value">${totalDuration}<span>dk</span></div><div class="wstat-label">Toplam Süre</div></div>
-        <div class="wstat-card"><div class="wstat-icon">🔥</div><div class="wstat-value">${totalKcal}<span>kcal</span></div><div class="wstat-label">Toplam Kalori</div></div>
-        <div class="wstat-card"><div class="wstat-icon">🧬</div><div class="wstat-value" style="font-size:0.95rem;">${topCategory}</div><div class="wstat-label">En Çok Çalışılan</div></div>
-        <div class="wstat-card"><div class="wstat-icon">⏳</div><div class="wstat-value">${longestSession}<span>dk</span></div><div class="wstat-label">En Uzun Antrenman</div></div>
-        <div class="wstat-card"><div class="wstat-icon">📅</div><div class="wstat-value">${thisMonthDays}</div><div class="wstat-label">Bu Ay Antrenman Günü</div></div>
-      </div>
-    `;
+    const dow = now.getDay();
+    const diffToMonday = (dow === 0 ? -6 : 1) - dow;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diffToMonday + offset * 7);
+    monday.setHours(0, 0, 0, 0);
+    const days = [];
+    for (let i = 0; i < 7; i++) { const d = new Date(monday); d.setDate(monday.getDate() + i); days.push(d); }
+    return days;
   }
 
-  // ── GitHub Tarzı Takvim Isı Haritası ────────────────────────────────────────
-  function renderWorkoutHeatmap() {
-    const el = document.getElementById('workoutHeatmapWrap');
+  function renderWorkoutAnalytics() {
+    const el = document.getElementById('workoutAnalyticsWrap');
     if (!el) return;
 
-    const kcalByDate = {};
-    workoutData.forEach(w => { kcalByDate[w.date] = (kcalByDate[w.date] || 0) + (w.calories_burned || 0); });
+    const weekDays = getWeekDays(waWeekOffset);
+    const weekDateStrs = weekDays.map(d => d.toISOString().split('T')[0]);
+    const dayNamesShort = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 
-    const totalDays = 98; // ~14 hafta
-    const end = new Date();
-    end.setHours(0,0,0,0);
-    // Bitiş gününü haftanın sonuna (Pazar) hizala, tablo düzgün dursun
-    const endDow = end.getDay();
-    end.setDate(end.getDate() + (6 - endDow === 6 ? 0 : (6 - endDow)));
-    const start = new Date(end);
-    start.setDate(start.getDate() - totalDays + 1);
-
-    const days = [];
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const ds = d.toISOString().split('T')[0];
-      days.push({ date: ds, kcal: kcalByDate[ds] || 0, future: d > new Date() });
-    }
-
-    function level(kcal) {
-      if (kcal <= 0) return 0;
-      if (kcal < 150) return 1;
-      if (kcal < 300) return 2;
-      if (kcal < 500) return 3;
-      return 4;
-    }
-
-    // Haftalara böl (7'şer günlük sütunlar)
-    const weeks = [];
-    for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
-
-    const monthLabels = [];
-    let lastMonth = -1;
-    weeks.forEach((week, wi) => {
-      const d = new Date(week[0].date + 'T00:00:00');
-      if (d.getMonth() !== lastMonth) {
-        monthLabels.push({ index: wi, label: d.toLocaleDateString('tr-TR', { month: 'short' }) });
-        lastMonth = d.getMonth();
-      }
+    const perDay = weekDateStrs.map(ds => {
+      const items = workoutData.filter(w => w.date === ds);
+      const kcal = items.reduce((a, b) => a + (b.calories_burned || 0), 0);
+      const dur = items.reduce((a, b) => a + (b.duration || 0), 0);
+      let sets = 0;
+      items.forEach(w => { const m = (w.notes || '').match(/(\d+)\s*set/i); if (m) sets += parseInt(m[1]); });
+      return { date: ds, kcal, dur, count: items.length, sets, items };
     });
+
+    if (!weekDateStrs.includes(waSelectedDate)) {
+      waSelectedDate = weekDateStrs.includes(today) ? today : weekDateStrs[6];
+    }
+    const selectedDay = perDay.find(p => p.date === waSelectedDate) || perDay[6];
+
+    const weekKcal = perDay.reduce((a, b) => a + b.kcal, 0);
+    const weekDur = perDay.reduce((a, b) => a + b.dur, 0);
+    const weekSets = perDay.reduce((a, b) => a + b.sets, 0);
+    const weekSessionDays = perDay.filter(p => p.count > 0).length;
+
+    const catCounts = {};
+    let cardioCount = 0, cardioKcal = 0;
+    weekDateStrs.forEach(ds => {
+      workoutData.filter(w => w.date === ds).forEach(w => {
+        const cat = EXNAME_TO_CAT[w.name];
+        if (cat) catCounts[cat] = (catCounts[cat] || 0) + 1;
+        if (w.workout_type === 'cardio') { cardioCount++; cardioKcal += (w.calories_burned || 0); }
+      });
+    });
+    const topCat = Object.keys(catCounts).length
+      ? Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0][0] : '—';
+
+    const weekLabel = `${weekDays[0].toLocaleDateString('tr-TR',{day:'2-digit',month:'short'})} – ${weekDays[6].toLocaleDateString('tr-TR',{day:'2-digit',month:'short'})}`;
 
     el.innerHTML = `
       <div class="card" style="margin-bottom:1.25rem;">
         <div class="card-body">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.9rem;">
-            <div style="font-size:0.78rem;color:var(--muted);font-weight:600;letter-spacing:0.3px;">📆 SON 14 HAFTA</div>
-            <div class="heatmap-legend">
-              <span>Az</span>
-              <span class="heatmap-cell" data-level="0"></span>
-              <span class="heatmap-cell" data-level="1"></span>
-              <span class="heatmap-cell" data-level="2"></span>
-              <span class="heatmap-cell" data-level="3"></span>
-              <span class="heatmap-cell" data-level="4"></span>
-              <span>Çok</span>
+          <div class="wa-header">
+            <div class="wa-week-nav">
+              <button class="wa-nav-btn" onclick="changeWaWeek(-1)">‹</button>
+              <div class="wa-week-label">${weekLabel}</div>
+              <button class="wa-nav-btn" onclick="changeWaWeek(1)" ${waWeekOffset >= 0 ? 'disabled' : ''}>›</button>
+            </div>
+            <div class="wa-toggle">
+              <button class="wa-toggle-btn ${waMode==='day'?'active':''}" onclick="setWaMode('day')">Gün</button>
+              <button class="wa-toggle-btn ${waMode==='week'?'active':''}" onclick="setWaMode('week')">Hafta</button>
             </div>
           </div>
-          <div class="heatmap-scroll">
-            <div class="heatmap-months">
-              ${monthLabels.map(m => `<span style="grid-column:${m.index + 1};">${m.label}</span>`).join('')}
-            </div>
-            <div class="heatmap-grid" style="grid-template-columns: repeat(${weeks.length}, 1fr);">
-              ${weeks.map(week => `
-                <div class="heatmap-col">
-                  ${week.map(day => `
-                    <div class="heatmap-cell ${day.future ? 'future' : ''}" data-level="${day.future ? '' : level(day.kcal)}" title="${formatDateLong(day.date)}${day.kcal ? ' · ' + day.kcal + ' kcal' : ''}"></div>
-                  `).join('')}
-                </div>
+
+          <div class="wa-metric-select">
+            ${Object.keys(WA_METRIC_META).map(m => `
+              <button class="wa-metric-btn ${waMetric===m?'active':''}" style="${waMetric===m?`background:${WA_METRIC_META[m].color}22;border-color:${WA_METRIC_META[m].color};color:${WA_METRIC_META[m].color};`:''}" onclick="setWaMetric('${m}')">${WA_METRIC_META[m].label}</button>
+            `).join('')}
+          </div>
+
+          <div style="height:170px;position:relative;margin:0.8rem 0 0.4rem;">
+            <canvas id="waChart"></canvas>
+          </div>
+
+          ${waMode === 'day' ? `
+            <div class="wa-day-picker">
+              ${perDay.map((p, i) => `
+                <button class="wa-day-btn ${p.date===waSelectedDate?'active':''} ${p.count>0?'has-data':''}" onclick="selectWaDay('${p.date}')">
+                  <div>${dayNamesShort[i]}</div>
+                  <div class="wa-day-num">${new Date(p.date+'T00:00:00').getDate()}</div>
+                </button>
               `).join('')}
             </div>
-          </div>
+            <div class="wa-stats-grid">
+              <div class="wa-stat"><div class="wa-stat-value">${selectedDay.count}</div><div class="wa-stat-label">Antrenman</div></div>
+              <div class="wa-stat"><div class="wa-stat-value">${selectedDay.dur}<span>dk</span></div><div class="wa-stat-label">Toplam Süre</div></div>
+              <div class="wa-stat"><div class="wa-stat-value">${selectedDay.kcal}<span>kcal</span></div><div class="wa-stat-label">Toplam Kalori</div></div>
+              <div class="wa-stat"><div class="wa-stat-value">${selectedDay.sets}</div><div class="wa-stat-label">Toplam Set</div></div>
+            </div>
+            ${selectedDay.items.length ? `
+              <div class="wa-exercise-list">
+                ${selectedDay.items.map(w => `
+                  <div class="wa-exercise-item">
+                    <span class="badge badge-${w.workout_type}">${typeLabel(w.workout_type)}</span>
+                    <span>${w.name}</span>
+                    <span style="margin-left:auto;color:var(--muted);font-size:0.78rem;">${w.calories_burned||0} kcal</span>
+                  </div>
+                `).join('')}
+              </div>
+            ` : `<div style="text-align:center;color:var(--muted);font-size:0.82rem;padding:1.2rem 0;">Bu gün antrenman kaydı yok.</div>`}
+          ` : `
+            <div class="wa-stats-grid">
+              <div class="wa-stat"><div class="wa-stat-value">${weekSessionDays}<span>/7</span></div><div class="wa-stat-label">Aktif Gün</div></div>
+              <div class="wa-stat"><div class="wa-stat-value">${weekDur}<span>dk</span></div><div class="wa-stat-label">Toplam Süre</div></div>
+              <div class="wa-stat"><div class="wa-stat-value">${weekKcal}<span>kcal</span></div><div class="wa-stat-label">Toplam Kalori</div></div>
+              <div class="wa-stat"><div class="wa-stat-value">${weekSets}</div><div class="wa-stat-label">Toplam Set</div></div>
+              <div class="wa-stat"><div class="wa-stat-value" style="font-size:0.92rem;">${topCat}</div><div class="wa-stat-label">En Çok Çalışılan</div></div>
+              <div class="wa-stat"><div class="wa-stat-value">${cardioCount}</div><div class="wa-stat-label">Kardio Antrenmanı</div></div>
+              <div class="wa-stat"><div class="wa-stat-value">${cardioKcal}<span>kcal</span></div><div class="wa-stat-label">Kardio Kalorisi</div></div>
+            </div>
+          `}
         </div>
       </div>
     `;
+
+    drawWaChart(perDay, dayNamesShort);
+  }
+
+  function changeWaWeek(delta) {
+    waWeekOffset += delta;
+    if (waWeekOffset > 0) waWeekOffset = 0;
+    renderWorkoutAnalytics();
+  }
+
+  function setWaMode(mode) {
+    waMode = mode;
+    renderWorkoutAnalytics();
+  }
+
+  function setWaMetric(metric) {
+    waMetric = metric;
+    renderWorkoutAnalytics();
+  }
+
+  function selectWaDay(date) {
+    waSelectedDate = date;
+    renderWorkoutAnalytics();
+  }
+
+  function drawWaChart(perDay, dayNamesShort) {
+    const ctx = document.getElementById('waChart');
+    if (!ctx) return;
+    if (waChartInstance) waChartInstance.destroy();
+
+    const meta = WA_METRIC_META[waMetric];
+    const values = perDay.map(p => p[waMetric]);
+
+    waChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: dayNamesShort,
+        datasets: [{
+          label: meta.label,
+          data: values,
+          borderColor: meta.color,
+          backgroundColor: meta.color + '26',
+          tension: 0.35,
+          fill: true,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBackgroundColor: perDay.map(p => p.date === waSelectedDate ? '#fff' : meta.color),
+          pointBorderColor: meta.color,
+          pointBorderWidth: 2,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.parsed.y}${meta.unit ? ' ' + meta.unit : ''}`
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#8888aa', font: { size: 11 } } },
+          y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8888aa', font: { size: 11 }, precision: 0 } }
+        },
+        onClick: (evt, elements) => {
+          if (elements.length) {
+            setWaMode('day');
+            selectWaDay(perDay[elements[0].index].date);
+          }
+        }
+      }
+    });
   }
 
 
