@@ -2261,7 +2261,14 @@
   let weightChartFull = null;
   let selectedGoal = 'general';
 
-  const today = new Date().toISOString().split('T')[0];
+  function toLocalDateStr(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  const today = toLocalDateStr(new Date());
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
@@ -2526,7 +2533,7 @@
     if (!el) return;
 
     const weekDays = getWeekDays(waWeekOffset);
-    const weekDateStrs = weekDays.map(d => d.toISOString().split('T')[0]);
+    const weekDateStrs = weekDays.map(d => toLocalDateStr(d));
     const dayNamesShort = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 
     const perDay = weekDateStrs.map(ds => {
@@ -4617,7 +4624,7 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
       if (!ctx) return;
       const days = Array.from({length:7},(_,i)=>{
         const d = new Date(); d.setDate(d.getDate()-6+i);
-        return d.toISOString().split('T')[0];
+        return toLocalDateStr(d);
       });
       const vals = days.map(d => foodData.filter(f=>f.date===d).reduce((a,b)=>a+(b.calories||0),0));
       new Chart(ctx, {
@@ -4812,7 +4819,7 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
     let streak = 0;
     for (let i=0; i<365; i++) {
       const d = new Date(); d.setDate(d.getDate()-i);
-      const ds = d.toISOString().split('T')[0];
+      const ds = toLocalDateStr(d);
       if (workoutData.some(w=>w.date===ds)) streak++;
       else break;
     }
