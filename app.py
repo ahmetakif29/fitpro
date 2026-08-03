@@ -996,6 +996,34 @@ def get_weights():
     return jsonify([{'id': r['id'], 'weight': r['weight'], 'date': r['date'], 'notes': r['notes']} for r in rows])
 
 
+@app.route('/api/streak')
+def get_streak():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    uid = session['user_id']
+    conn = get_db(); cur = conn.cursor()
+    cur.execute('''
+        SELECT date FROM weight_logs WHERE user_id = %s
+        UNION
+        SELECT date FROM workout_logs WHERE user_id = %s
+        UNION
+        SELECT date FROM nutrition_logs WHERE user_id = %s
+        UNION
+        SELECT TO_CHAR(updated_at, 'YYYY-MM-DD') FROM personal_records WHERE user_id = %s
+    ''', (uid, uid, uid, uid))
+    active_dates = {row[0] for row in cur.fetchall() if row[0]}
+    cur.close(); conn.close()
+
+    today_str = date.today().isoformat()
+    streak = 0
+    d = date.today()
+    while d.isoformat() in active_dates:
+        streak += 1
+        d -= timedelta(days=1)
+
+    return jsonify({'streak': streak, 'today_active': today_str in active_dates})
+
+
 @app.route('/api/weight', methods=['POST'])
 def add_weight():
     if 'user_id' not in session: return jsonify({'error': 'Unauthorized'}), 401

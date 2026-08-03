@@ -1179,6 +1179,99 @@
   }
   .wa-exercise-item:last-child { border-bottom: none; }
 
+  .streak-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: linear-gradient(135deg, #ff6b3510, #ffd16610);
+    border: 1px solid #ff9f1c40;
+    border-radius: 100px;
+    padding: 0.45rem 0.9rem;
+  }
+  .streak-flame { font-size: 1.1rem; }
+  .streak-badge #streakCountEl {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1rem;
+    color: #ff9f1c;
+  }
+  .streak-badge.streak-pulse { animation: streakPulse 0.6s ease; }
+  @keyframes streakPulse {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.25); box-shadow: 0 0 0 0 #ff9f1c50; }
+    60% { transform: scale(0.95); }
+    100% { transform: scale(1); }
+  }
+
+  .streak-celebration-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10,10,15,0.55);
+    backdrop-filter: blur(3px);
+    opacity: 1;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+  }
+  .streak-celebration-overlay.fade-out { opacity: 0; }
+
+  .streak-celebration-card {
+    background: linear-gradient(160deg, #1a1a24, #111118);
+    border: 1px solid #ff9f1c50;
+    border-radius: 24px;
+    padding: 2.2rem 2.6rem;
+    text-align: center;
+    box-shadow: 0 0 60px 10px #ff9f1c25;
+    animation: streakCardPop 0.5s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes streakCardPop {
+    0% { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .streak-celebration-flame {
+    font-size: 3.2rem;
+    animation: streakFlameBounce 0.9s ease infinite;
+  }
+  @keyframes streakFlameBounce {
+    0%, 100% { transform: scale(1) translateY(0); }
+    50% { transform: scale(1.15) translateY(-6px); }
+  }
+
+  .streak-celebration-number {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 3rem;
+    background: linear-gradient(135deg, #ff9f1c, #ffd166);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    line-height: 1.1;
+    margin-top: 0.3rem;
+  }
+  .streak-celebration-label {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    color: #fff;
+    margin-top: 0.2rem;
+  }
+
+  .streak-particle {
+    position: absolute;
+    top: 50%;
+    font-size: 1.4rem;
+    opacity: 0;
+    animation: streakParticleFly ease-out forwards;
+  }
+  @keyframes streakParticleFly {
+    0% { opacity: 1; transform: translate(0,0) scale(1) rotate(0deg); }
+    100% { opacity: 0; transform: translate(var(--tx, 0px), -220px) scale(0.6) rotate(360deg); }
+  }
+
   .confetti-layer { position: fixed; inset: 0; pointer-events: none; z-index: 9999; overflow: hidden; }
   .confetti-piece {
     position: absolute;
@@ -2276,6 +2369,7 @@
     await loadWorkouts();
     await loadFoods();
     await loadMeasurements();
+    await refreshStreak(false);
   }
 
   // ── Navigation ────────────────────────────────────────────────────────────
@@ -2317,7 +2411,8 @@
       weight: `<button class="btn btn-accent" onclick="openModal('weightModal')">+ Kilo Ekle</button>`,
       workouts: `<button class="btn btn-accent" onclick="openModal('exercisePickerModal')">+ Antrenman Ekle</button>`,
       nutrition: currentUser.is_premium ? `<button class="btn btn-accent" onclick="openModal('foodModal')">+ Yemek Ekle</button>` : '',
-      measurements: currentUser.is_premium ? `<button class="btn btn-accent" onclick="openModal('measureModal')">+ Ölçü Ekle</button>` : ''
+      measurements: currentUser.is_premium ? `<button class="btn btn-accent" onclick="openModal('measureModal')">+ Ölçü Ekle</button>` : '',
+      overview: streakBadgeHtml(),
     };
     document.getElementById('topbarActions').innerHTML = btns[name] || '';
 
@@ -2929,6 +3024,7 @@
       closeModal('workoutBuilderModal');
       await loadWorkouts();
       await loadStats();
+      await refreshStreak(true);
     } catch (e) {
       showToast('Kaydedilirken hata oluştu', true);
     }
@@ -3833,6 +3929,7 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
     closeModal('weightModal');
     await loadWeights();
     await loadStats();
+    await refreshStreak(true);
     document.getElementById('wWeight').value = '';
     document.getElementById('wNotes').value = '';
   }
@@ -3865,6 +3962,7 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
     closeModal('workoutModal');
     await loadWorkouts();
     await loadStats();
+    await refreshStreak(true);
     document.getElementById('woName').value = '';
     document.getElementById('woDuration').value = '';
     document.getElementById('woCalories').value = '';
@@ -3914,6 +4012,66 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  // ── Streak Sistemi ───────────────────────────────────────────────────────
+  let appStreak = 0;
+  let streakLoaded = false;
+
+  function streakBadgeHtml() {
+    return `<div class="streak-badge" id="streakBadgeEl"><span class="streak-flame">🔥</span><span id="streakCountEl">${appStreak}</span></div>`;
+  }
+
+  async function refreshStreak(celebrate) {
+    try {
+      const res = await fetch('/api/streak');
+      if (!res.ok) return;
+      const data = await res.json();
+      const newStreak = data.streak || 0;
+      const increased = streakLoaded && celebrate && newStreak > appStreak;
+
+      appStreak = newStreak;
+      streakLoaded = true;
+
+      const badgeEl = document.getElementById('streakBadgeEl');
+      const countEl = document.getElementById('streakCountEl');
+      if (countEl) countEl.textContent = appStreak;
+      if (badgeEl && increased) {
+        badgeEl.classList.remove('streak-pulse');
+        void badgeEl.offsetWidth; // reflow, animasyonu tekrar tetikle
+        badgeEl.classList.add('streak-pulse');
+      }
+
+      if (increased) celebrateStreak(appStreak);
+    } catch (e) { /* sessizce geç */ }
+  }
+
+  function celebrateStreak(streakNum) {
+    const overlay = document.createElement('div');
+    overlay.className = 'streak-celebration-overlay';
+    overlay.innerHTML = `
+      <div class="streak-celebration-card">
+        <div class="streak-celebration-flame">🔥</div>
+        <div class="streak-celebration-number">${streakNum}</div>
+        <div class="streak-celebration-label">Günlük Seri!</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Uçuşan mini alevler
+    for (let i = 0; i < 18; i++) {
+      const p = document.createElement('div');
+      p.className = 'streak-particle';
+      p.textContent = '🔥';
+      p.style.left = (40 + Math.random() * 20) + 'vw';
+      p.style.setProperty('--tx', ((Math.random() * 2 - 1) * 160) + 'px');
+      p.style.animationDelay = (Math.random() * 0.5) + 's';
+      p.style.animationDuration = (1.2 + Math.random() * 0.8) + 's';
+      overlay.appendChild(p);
+    }
+
+    setTimeout(() => overlay.classList.add('fade-out'), 1800);
+    setTimeout(() => overlay.remove(), 2300);
+  }
 
   function avatarInner(username, avatarData) {
     if (avatarData) return `<img src="${avatarData}" alt="${username||''}">`;
@@ -4351,6 +4509,7 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
     ['foodKcal','foodProtein','foodCarb','foodFat'].forEach(id => document.getElementById(id).value = '');
     await loadFoods();
     renderNutrition();
+    await refreshStreak(true);
     showToast('🍎 Yemek eklendi!');
   }
 
@@ -5114,6 +5273,7 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
       } else {
         showToast('PR kaydedildi 💪');
       }
+      await refreshStreak(true);
       switchLeaderboardTab(exercise);
     } catch (e) { showToast('Bağlantı hatası', true); }
   }
