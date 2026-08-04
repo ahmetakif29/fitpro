@@ -795,6 +795,22 @@
   .act-opt.selected { border-color: var(--accent); background: #7c5cfc15; color: var(--accent2); }
   .act-opt .act-icon { font-size: 1.1rem; display: block; margin-bottom: 0.2rem; }
 
+  .goal-type-bar { display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap; }
+  .goal-type-opt {
+    flex: 1;
+    min-width: 90px;
+    padding: 0.6rem 0.4rem;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 0.75rem;
+    color: var(--muted);
+    transition: all 0.2s;
+  }
+  .goal-type-opt.selected { border-color: var(--accent); background: #7c5cfc15; color: var(--accent2); font-weight: 600; }
+
   
   .progress-bar {
     height: 6px;
@@ -1725,6 +1741,11 @@
     <div class="page active" id="page-overview">
       <div class="stats-row" id="statsRow">
         <div class="stat-card">
+          <div class="stat-label">PLAN</div>
+          <div class="stat-value" id="stat-plan" style="font-size:1.1rem;">—</div>
+          <div class="stat-sub" id="stat-plan-kcal">hedef kalori</div>
+        </div>
+        <div class="stat-card">
           <div class="stat-label">MEVCUT KİLO</div>
           <div class="stat-value" id="stat-weight">—</div>
           <div class="stat-sub">kg</div>
@@ -2287,6 +2308,52 @@
   let weightChartFull = null;
   let selectedGoal = 'general';
 
+  // ── Hedef Bazlı Beslenme Planı (TDEE + kalori + makro hesabı) ──────────────
+  const GOAL_META = {
+    lose:     { label: 'Kilo Vermek',    icon: '🎯' },
+    gain:     { label: 'Kilo Almak',     icon: '💪' },
+    maintain: { label: 'Kiloyu Korumak', icon: '⚖️' },
+  };
+  const INTENSITY_KCAL = { mild: 300, moderate: 500, aggressive: 750 };
+
+  function calculateNutritionPlan(u) {
+    if (!u || !u.height || !u.age || !u.current_weight) return null;
+
+    const isMale = u.gender !== 'female';
+    const bmr = isMale
+      ? 10 * u.current_weight + 6.25 * u.height - 5 * u.age + 5
+      : 10 * u.current_weight + 6.25 * u.height - 5 * u.age - 161;
+
+    const actMult = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, very_active: 1.9 };
+    const tdee = Math.round(bmr * (actMult[u.activity_level || 'moderate'] || 1.55));
+
+    const goalType = u.goal_type || 'lose';
+    const delta = INTENSITY_KCAL[u.goal_intensity || 'moderate'] || 500;
+
+    let calorieTarget = tdee;
+    if (goalType === 'lose') calorieTarget = tdee - delta;
+    else if (goalType === 'gain') calorieTarget = tdee + delta;
+    calorieTarget = Math.max(1200, Math.round(calorieTarget));
+
+    // Protein: 2g/kg vücut ağırlığı (sporcu standardı)
+    const protein = Math.round(u.current_weight * 2);
+    const proteinKcal = protein * 4;
+
+    // Yağ: kalorinin ~%25-28'i (hedefe göre hafif değişir)
+    const fatPct = goalType === 'gain' ? 0.28 : goalType === 'lose' ? 0.25 : 0.27;
+    const fat = Math.round((calorieTarget * fatPct) / 9);
+    const fatKcal = fat * 9;
+
+    // Kalan kalori karbonhidrattan
+    const carbs = Math.max(0, Math.round((calorieTarget - proteinKcal - fatKcal) / 4));
+
+    return {
+      bmr: Math.round(bmr), tdee, calorieTarget,
+      protein, carbs, fat,
+      goalType, goalIntensity: u.goal_intensity || 'moderate',
+    };
+  }
+
   function toLocalDateStr(d) {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -2475,6 +2542,24 @@
 
   // ── Data Loading ──────────────────────────────────────────────────────────
 
+  function weightChangeColorClass(change, goalType) {
+    if (goalType === 'gain') {
+      if (change > 0) return 'stat-green';
+      if (change < 0) return 'stat-red';
+      return '';
+    }
+    if (goalType === 'maintain') {
+      const abs = Math.abs(change);
+      if (abs < 1) return 'stat-green';
+      if (abs < 3) return 'stat-amber';
+      return 'stat-red';
+    }
+    // varsayılan: kilo vermek
+    if (change < 0) return 'stat-green';
+    if (change > 0) return 'stat-red';
+    return '';
+  }
+
   async function loadStats() {
     const res = await fetch('/api/stats');
     const s = await res.json();
@@ -2483,7 +2568,7 @@
     const changeEl = document.getElementById('stat-change');
     if (s.weight_change !== 0) {
       changeEl.textContent = (s.weight_change > 0 ? '+' : '') + s.weight_change + ' kg';
-      changeEl.parentElement.className = 'stat-card ' + (s.weight_change < 0 ? 'stat-green' : 'stat-red');
+      changeEl.parentElement.className = 'stat-card ' + weightChangeColorClass(s.weight_change, currentUser?.goal_type);
     } else {
       changeEl.textContent = '0 kg';
     }
@@ -2497,6 +2582,18 @@
     if (weightData.length) currentUser.current_weight = weightData[weightData.length-1].weight;
     renderWeightLogs();
     renderOverviewChart();
+    renderPlanCard();
+  }
+
+  function renderPlanCard() {
+    const planEl = document.getElementById('stat-plan');
+    const planKcalEl = document.getElementById('stat-plan-kcal');
+    if (!planEl || !currentUser) return;
+    const goalType = currentUser.goal_type || 'lose';
+    const meta = GOAL_META[goalType];
+    planEl.textContent = `${meta.icon} ${meta.label}`;
+    const plan = calculateNutritionPlan(currentUser);
+    planKcalEl.textContent = plan ? plan.calorieTarget.toLocaleString() + ' kcal hedef' : 'hedef kalori';
   }
 
   async function loadWorkouts() {
@@ -4341,6 +4438,24 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
                   `).join('')}
                 </div>
               </div>
+              <div class="form-group">
+                <label>Hedefin Nedir?</label>
+                <div class="goal-type-bar">
+                  ${Object.keys(GOAL_META).map(g => `
+                    <div class="goal-type-opt ${(u.goal_type||'lose')===g?'selected':''}" onclick="selectGoalType('${g}')">
+                      <span class="act-icon">${GOAL_META[g].icon}</span>${GOAL_META[g].label}
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Hız Tercihin</label>
+                <div class="goal-type-bar">
+                  <div class="goal-type-opt ${(u.goal_intensity||'moderate')==='mild'?'selected':''}" onclick="selectGoalIntensity('mild')">Yumuşak</div>
+                  <div class="goal-type-opt ${(u.goal_intensity||'moderate')==='moderate'?'selected':''}" onclick="selectGoalIntensity('moderate')">Orta <span style="opacity:0.6;font-size:0.68rem;">(önerilen)</span></div>
+                  <div class="goal-type-opt ${(u.goal_intensity||'moderate')==='aggressive'?'selected':''}" onclick="selectGoalIntensity('aggressive')">Agresif</div>
+                </div>
+              </div>
               <button class="save-btn" onclick="saveProfile()">💾 Kaydet</button>
             </div>
           </div>
@@ -4368,7 +4483,7 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
               <div class="goal-item">
                 <div class="goal-icon">🔥</div>
                 <div>
-                  <div class="goal-label">GÜNLÜK KALORİ HEDEFİ (TDEE)</div>
+                  <div class="goal-label">GÜNLÜK KALORİ HEDEFİN</div>
                   <div class="goal-val" id="tdeeVal">—</div>
                 </div>
               </div>
@@ -4412,6 +4527,9 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
     `;
 
     // TDEE hesapla
+    selectedActivity = u.activity_level || 'moderate';
+    selectedGoalType = u.goal_type || 'lose';
+    selectedGoalIntensity = u.goal_intensity || 'moderate';
     calcTDEE();
     // Verilen kilo
     if (u.goal_weight && u.current_weight) {
@@ -4421,29 +4539,36 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
   }
 
   let selectedActivity = 'moderate';
+  let selectedGoalType = 'lose';
+  let selectedGoalIntensity = 'moderate';
 
   function selectActivity(val) {
     selectedActivity = val;
-    document.querySelectorAll('.act-opt').forEach(el => {
-      el.classList.toggle('selected', el.onclick.toString().includes(`'${val}'`));
-    });
-    // Daha güvenilir seçim
     document.querySelectorAll('.act-opt').forEach(el => el.classList.remove('selected'));
     event.currentTarget.classList.add('selected');
   }
 
+  function selectGoalType(val) {
+    selectedGoalType = val;
+    const bar = event.currentTarget.parentElement;
+    bar.querySelectorAll('.goal-type-opt').forEach(el => el.classList.remove('selected'));
+    event.currentTarget.classList.add('selected');
+    calcTDEE();
+  }
+
+  function selectGoalIntensity(val) {
+    selectedGoalIntensity = val;
+    const bar = event.currentTarget.parentElement;
+    bar.querySelectorAll('.goal-type-opt').forEach(el => el.classList.remove('selected'));
+    event.currentTarget.classList.add('selected');
+    calcTDEE();
+  }
+
   function calcTDEE() {
-    const u = currentUser;
-    if (!u.height || !u.age || !u.current_weight) return;
-    const isMale = u.gender !== 'female';
-    // Mifflin-St Jeor
-    let bmr = isMale
-      ? 10 * u.current_weight + 6.25 * u.height - 5 * u.age + 5
-      : 10 * u.current_weight + 6.25 * u.height - 5 * u.age - 161;
-    const multipliers = {sedentary:1.2, light:1.375, moderate:1.55, active:1.725, very_active:1.9};
-    const tdee = Math.round(bmr * (multipliers[u.activity_level || 'moderate'] || 1.55));
+    const u = { ...currentUser, activity_level: selectedActivity, goal_type: selectedGoalType, goal_intensity: selectedGoalIntensity };
+    const plan = calculateNutritionPlan(u);
     const el = document.getElementById('tdeeVal');
-    if (el) el.textContent = tdee.toLocaleString() + ' kcal/gün';
+    if (el) el.textContent = plan ? plan.calorieTarget.toLocaleString() + ' kcal/gün' : '—';
   }
 
   function handlePhotoUpload(input) {
@@ -4494,10 +4619,9 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
       age: parseInt(document.getElementById('editAge').value) || null,
       goal_weight: parseFloat(document.getElementById('editGoalWeight').value) || null,
       gender: document.getElementById('editGender').value,
-      activity_level: document.querySelector('.act-opt.selected')?.textContent?.trim() ? 
-        ['sedentary','light','moderate','active','very_active'].find(v => 
-          document.querySelector(`.act-opt.selected`)?.getAttribute('onclick')?.includes(v)
-        ) || selectedActivity : selectedActivity
+      activity_level: selectedActivity,
+      goal_type: selectedGoalType,
+      goal_intensity: selectedGoalIntensity
     };
     const res = await fetch('/api/profile', {
       method: 'POST',
@@ -4508,6 +4632,7 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
       Object.assign(currentUser, payload);
       showToast('✅ Profil kaydedildi!');
       renderProfile();
+      renderPlanCard();
     }
   }
 
@@ -4594,16 +4719,10 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
     const totalCarb = todayFoods.reduce((a,b)=>a+(b.carbs||0),0);
     const totalFat = todayFoods.reduce((a,b)=>a+(b.fat||0),0);
 
-    const tdee = (() => {
-      const u = currentUser;
-      if (!u.height || !u.age || !u.current_weight) return 2000;
-      const isMale = u.gender !== 'female';
-      const bmr = isMale ? 10*u.current_weight+6.25*u.height-5*u.age+5 : 10*u.current_weight+6.25*u.height-5*u.age-161;
-      const m = {sedentary:1.2,light:1.375,moderate:1.55,active:1.725,very_active:1.9};
-      return Math.round(bmr*(m[u.activity_level||'moderate']||1.55));
-    })();
+    const plan = calculateNutritionPlan(currentUser) || { calorieTarget: 2000, protein: 150, carbs: 250, fat: 80, goalType: 'lose' };
+    const calorieTarget = plan.calorieTarget;
 
-    const pct = Math.min(100, Math.round(totalKcal/tdee*100));
+    const pct = Math.min(100, Math.round(totalKcal/calorieTarget*100));
     const circum = 2*Math.PI*46;
     const offset = circum - pct/100*circum;
     const ringColor = pct > 100 ? 'var(--red)' : pct > 80 ? 'var(--amber)' : 'var(--green)';
@@ -4614,7 +4733,10 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
     el.innerHTML = `
       <div class="grid-2" style="margin-bottom:1.5rem;">
         <div class="card">
-          <div class="card-header"><div class="card-title">Bugünkü Kalori</div></div>
+          <div class="card-header">
+            <div class="card-title">Bugünkü Kalori</div>
+            <div style="font-size:0.72rem;color:var(--muted);">${GOAL_META[plan.goalType]?.icon || ''} ${GOAL_META[plan.goalType]?.label || ''}</div>
+          </div>
           <div class="card-body">
             <div class="calorie-ring-wrap">
               <div class="calorie-ring">
@@ -4626,21 +4748,21 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
                 </svg>
                 <div class="calorie-center">
                   <div class="calorie-num">${totalKcal}</div>
-                  <div class="calorie-sub">/ ${tdee} kcal</div>
+                  <div class="calorie-sub">/ ${calorieTarget} kcal</div>
                 </div>
               </div>
               <div style="flex:1;">
                 <div class="macro-bar-wrap">
-                  <div class="macro-bar-label"><span>Protein</span><span style="color:var(--accent2)">${totalProtein.toFixed(0)}g</span></div>
-                  <div class="macro-bar"><div class="macro-bar-fill macro-protein" style="width:${Math.min(100,totalProtein/150*100)}%"></div></div>
+                  <div class="macro-bar-label"><span>Protein</span><span style="color:var(--accent2)">${totalProtein.toFixed(0)} / ${plan.protein}g</span></div>
+                  <div class="macro-bar"><div class="macro-bar-fill macro-protein" style="width:${Math.min(100,totalProtein/plan.protein*100)}%"></div></div>
                 </div>
                 <div class="macro-bar-wrap">
-                  <div class="macro-bar-label"><span>Karbonhidrat</span><span style="color:var(--amber)">${totalCarb.toFixed(0)}g</span></div>
-                  <div class="macro-bar"><div class="macro-bar-fill macro-carb" style="width:${Math.min(100,totalCarb/250*100)}%"></div></div>
+                  <div class="macro-bar-label"><span>Karbonhidrat</span><span style="color:var(--amber)">${totalCarb.toFixed(0)} / ${plan.carbs}g</span></div>
+                  <div class="macro-bar"><div class="macro-bar-fill macro-carb" style="width:${Math.min(100,totalCarb/plan.carbs*100)}%"></div></div>
                 </div>
                 <div class="macro-bar-wrap">
-                  <div class="macro-bar-label"><span>Yağ</span><span style="color:var(--green)">${totalFat.toFixed(0)}g</span></div>
-                  <div class="macro-bar"><div class="macro-bar-fill macro-fat" style="width:${Math.min(100,totalFat/80*100)}%"></div></div>
+                  <div class="macro-bar-label"><span>Yağ</span><span style="color:var(--green)">${totalFat.toFixed(0)} / ${plan.fat}g</span></div>
+                  <div class="macro-bar"><div class="macro-bar-fill macro-fat" style="width:${Math.min(100,totalFat/plan.fat*100)}%"></div></div>
                 </div>
               </div>
             </div>

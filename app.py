@@ -241,6 +241,8 @@ def init_db():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS activity_level TEXT DEFAULT 'moderate'",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TEXT DEFAULT CURRENT_TIMESTAMP",
         "ALTER TABLE measurements ADD COLUMN IF NOT EXISTS neck REAL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS goal_type TEXT DEFAULT 'lose'",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS goal_intensity TEXT DEFAULT 'moderate'",
     ]:
         try:
             cur.execute(sql)
@@ -344,10 +346,11 @@ def register():
     try:
         friend_code = generate_unique_friend_code(cur)
         cur.execute(
-            'INSERT INTO users (username,email,password,height,goal_weight,age,gender,friend_code) '
-            'VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id',
+            'INSERT INTO users (username,email,password,height,goal_weight,age,gender,friend_code,goal_type,goal_intensity) '
+            'VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id',
             (d['username'], d['email'], hash_pw(d['password']),
-             d.get('height'), d.get('goal_weight'), d.get('age'), d.get('gender'), friend_code)
+             d.get('height'), d.get('goal_weight'), d.get('age'), d.get('gender'), friend_code,
+             d.get('goal_type', 'lose'), d.get('goal_intensity', 'moderate'))
         )
         uid = cur.fetchone()[0]
         conn.commit()
@@ -622,6 +625,8 @@ def me():
         'is_premium': bool(u['is_premium']), 'height': u['height'],
         'goal_weight': u['goal_weight'], 'age': u['age'], 'gender': u['gender'],
         'activity_level': u.get('activity_level', 'moderate'),
+        'goal_type': u.get('goal_type', 'lose'),
+        'goal_intensity': u.get('goal_intensity', 'moderate'),
         'created_at': u.get('created_at', ''),
         'friend_code': friend_code,
         'avatar_data': u.get('avatar_data'),
@@ -1244,9 +1249,10 @@ def update_profile():
     d = request.json
     conn = get_db(); cur = conn.cursor()
     cur.execute(
-        'UPDATE users SET height=%s, goal_weight=%s, age=%s, gender=%s, activity_level=%s WHERE id=%s',
+        'UPDATE users SET height=%s, goal_weight=%s, age=%s, gender=%s, activity_level=%s, goal_type=%s, goal_intensity=%s WHERE id=%s',
         (d.get('height'), d.get('goal_weight'), d.get('age'),
-         d.get('gender'), d.get('activity_level', 'moderate'), session['user_id'])
+         d.get('gender'), d.get('activity_level', 'moderate'),
+         d.get('goal_type', 'lose'), d.get('goal_intensity', 'moderate'), session['user_id'])
     )
     conn.commit(); cur.close(); conn.close()
     return jsonify({'success': True})

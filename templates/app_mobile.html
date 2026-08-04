@@ -339,6 +339,25 @@
   .field-row { display: flex; gap: 0.7rem; }
   .field-row .field { flex: 1; min-width: 0; }
 
+  .goal-select { display: flex; flex-direction: column; gap: 0.5rem; }
+  .goal-opt {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+  }
+  .goal-opt-icon { font-size: 1.1rem; }
+  .goal-opt.selected { border-color: var(--accent); background: #7c5cfc15; }
+
   .error-msg {
     display: none;
     background: #ff4d6d15;
@@ -540,6 +559,20 @@
           </select>
         </div>
       </div>
+      <div class="field">
+        <label>Hedefin Nedir?</label>
+        <div class="goal-select" id="regGoalSelect">
+          <button type="button" class="goal-opt selected" data-goal="lose" onclick="selectRegGoal('lose')">
+            <span class="goal-opt-icon">🎯</span><span>Kilo Vermek</span>
+          </button>
+          <button type="button" class="goal-opt" data-goal="gain" onclick="selectRegGoal('gain')">
+            <span class="goal-opt-icon">💪</span><span>Kilo Almak</span>
+          </button>
+          <button type="button" class="goal-opt" data-goal="maintain" onclick="selectRegGoal('maintain')">
+            <span class="goal-opt-icon">⚖️</span><span>Kiloyu Korumak</span>
+          </button>
+        </div>
+      </div>
       <div class="error-msg" id="registerError"></div>
       <button type="button" class="submit-btn" id="registerBtn" onclick="handleRegister()">
         <span class="btn-label">Hesap Oluştur</span>
@@ -624,6 +657,15 @@
     }
   }
 
+  let regSelectedGoal = 'lose';
+
+  function selectRegGoal(goal) {
+    regSelectedGoal = goal;
+    document.querySelectorAll('.goal-opt').forEach(el => {
+      el.classList.toggle('selected', el.dataset.goal === goal);
+    });
+  }
+
   async function handleRegister() {
     const errEl = document.getElementById('registerError');
     const btn = document.getElementById('registerBtn');
@@ -636,7 +678,9 @@
       height: parseFloat(document.getElementById('regHeight').value) || null,
       goal_weight: parseFloat(document.getElementById('regGoalWeight').value) || null,
       age: parseInt(document.getElementById('regAge').value) || null,
-      gender: document.getElementById('regGender').value
+      gender: document.getElementById('regGender').value,
+      goal_type: regSelectedGoal,
+      goal_intensity: 'moderate'
     };
 
     if (!payload.username || !payload.email || !payload.password) {
