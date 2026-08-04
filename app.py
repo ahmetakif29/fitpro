@@ -472,6 +472,8 @@ def cron_daily_reminders():
     if not cron_secret or incoming != cron_secret:
         return jsonify({'error': 'yetkisiz'}), 403
 
+    monday_str = (date.today() - timedelta(days=date.today().weekday())).isoformat()
+
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute('''
         SELECT u.id, u.fcm_token, u.goal_weight,
@@ -481,10 +483,10 @@ def cron_daily_reminders():
           (SELECT TO_CHAR(MAX(updated_at), 'YYYY-MM-DD') FROM personal_records WHERE user_id = u.id) AS last_pr,
           (SELECT weight FROM weight_logs WHERE user_id = u.id ORDER BY date DESC LIMIT 1) AS current_weight,
           (SELECT weight FROM weight_logs WHERE user_id = u.id ORDER BY date ASC LIMIT 1) AS start_weight,
-          (SELECT COUNT(*) FROM workout_logs WHERE user_id = u.id AND date >= (CURRENT_DATE - INTERVAL '7 days')::text) AS weekly_workouts
+          (SELECT COUNT(*) FROM workout_logs WHERE user_id = u.id AND date >= %s) AS weekly_workouts
         FROM users u
         WHERE u.fcm_token IS NOT NULL AND u.fcm_token <> ''
-    ''')
+    ''', (monday_str,))
     rows = cur.fetchall()
     cur.close(); conn.close()
 
@@ -756,6 +758,7 @@ def friends_list():
     if 'user_id' not in session:
         return jsonify({'error': 'Giriş yapmalısınız'}), 401
     uid = session['user_id']
+    monday_str = (date.today() - timedelta(days=date.today().weekday())).isoformat()
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute('''
         SELECT CASE WHEN requester_id = %s THEN addressee_id ELSE requester_id END AS friend_id
@@ -777,8 +780,8 @@ def friends_list():
         cur.execute('SELECT MAX(date) AS d FROM workout_logs WHERE user_id = %s', (fid,))
         lw = cur.fetchone()
         cur.execute(
-            "SELECT COUNT(*) AS c FROM workout_logs WHERE user_id = %s AND date >= (CURRENT_DATE - INTERVAL '7 days')::text",
-            (fid,)
+            "SELECT COUNT(*) AS c FROM workout_logs WHERE user_id = %s AND date >= %s",
+            (fid, monday_str)
         )
         wk = cur.fetchone()
 
@@ -833,8 +836,8 @@ def friends_profile(friend_id):
     cur.execute('SELECT COUNT(*) AS c FROM workout_logs WHERE user_id = %s', (friend_id,))
     total_workouts = cur.fetchone()
     cur.execute(
-        "SELECT COUNT(*) AS c FROM workout_logs WHERE user_id = %s AND date >= (CURRENT_DATE - INTERVAL '7 days')::text",
-        (friend_id,)
+        "SELECT COUNT(*) AS c FROM workout_logs WHERE user_id = %s AND date >= %s",
+        (friend_id, (date.today() - timedelta(days=date.today().weekday())).isoformat())
     )
     weekly = cur.fetchone()
     cur.execute('SELECT MAX(date) AS d FROM workout_logs WHERE user_id = %s', (friend_id,))
@@ -1140,7 +1143,7 @@ def get_stats():
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute('SELECT weight FROM weight_logs WHERE user_id = %s ORDER BY date', (uid,))
     weights = cur.fetchall()
-    week_ago = (date.today() - timedelta(days=7)).isoformat()
+    week_ago = (date.today() - timedelta(days=date.today().weekday())).isoformat()
     cur.execute(
         'SELECT duration, calories_burned FROM workout_logs WHERE user_id = %s AND date >= %s',
         (uid, week_ago)
