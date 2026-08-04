@@ -418,6 +418,14 @@ MSG_LONG_INACTIVE = [
     ('Hâlâ oradayız 🙌', '{days} gündür seni görmüyoruz, geri gelmen bizi mutlu eder.'),
 ]
 
+MSG_STREAK_BROKEN = [
+    ('Serin bozuluyor! 🔥💔', '{days} gündür hiç veri girmedin, serini kaybetmeden geri dön!'),
+    ('Ateş sönüyor 🥺', '{days} gündür sessizsin, kısa bir kayıt bile seriyi kurtarır.'),
+    ('Serine dikkat! ⚠️🔥', '{days} gündür kilo, antrenman veya beslenme girmedin.'),
+    ('Az kaldı, kaybetme! 🔥', '{days} gündür veri yok, serini bugün kurtarabilirsin.'),
+    ('Streak tehlikede 😬', '{days} gündür uygulamayı kullanmadın, serin sıfırlanmak üzere.'),
+]
+
 MSG_NO_WORKOUT = [
     ('Hadi devam et 💪', 'Birkaç gündür antrenman kaydın yok, bugün küçük bir seans bile fark yaratır.'),
     ('Bugün sıra sende 🔥', 'Antrenman zamanı geldi, hadi başlayalım.'),
@@ -466,6 +474,8 @@ def cron_daily_reminders():
         SELECT u.id, u.fcm_token, u.goal_weight,
           (SELECT MAX(date) FROM workout_logs WHERE user_id = u.id) AS last_workout,
           (SELECT MAX(date) FROM weight_logs WHERE user_id = u.id) AS last_weight,
+          (SELECT MAX(date) FROM nutrition_logs WHERE user_id = u.id) AS last_nutrition,
+          (SELECT TO_CHAR(MAX(updated_at), 'YYYY-MM-DD') FROM personal_records WHERE user_id = u.id) AS last_pr,
           (SELECT weight FROM weight_logs WHERE user_id = u.id ORDER BY date DESC LIMIT 1) AS current_weight,
           (SELECT weight FROM weight_logs WHERE user_id = u.id ORDER BY date ASC LIMIT 1) AS start_weight,
           (SELECT COUNT(*) FROM workout_logs WHERE user_id = u.id AND date >= (CURRENT_DATE - INTERVAL '7 days')::text) AS weekly_workouts
@@ -495,7 +505,18 @@ def cron_daily_reminders():
 
         days_since_workout = (today - last_workout).days if last_workout else None
         days_since_weight = (today - last_weight).days if last_weight else None
-        inactive_days = max(d for d in [days_since_workout, days_since_weight, 999] if d is not None)
+
+        # Herhangi bir veri türü (kilo, antrenman, beslenme, PR) üzerinden birleşik son aktiflik
+        activity_dates = []
+        for key in ('last_workout', 'last_weight', 'last_nutrition', 'last_pr'):
+            val = r.get(key)
+            if val:
+                try:
+                    activity_dates.append(date.fromisoformat(str(val)[:10]))
+                except Exception:
+                    pass
+        last_any_activity = max(activity_dates) if activity_dates else None
+        days_since_any = (today - last_any_activity).days if last_any_activity else None
 
         remaining_kg = None
         if r['current_weight'] is not None and r['goal_weight']:
@@ -511,9 +532,12 @@ def cron_daily_reminders():
 
         title = body = None
 
-        # Öncelik sırası: uzun süredir yok > hedefe çok yakın > antrenman eksik >
-        # kilo eksik > iyi seri (övgü) > ilerleme övgüsü > genel motivasyon
-        if days_since_workout is not None and days_since_workout >= 7:
+        # Öncelik sırası: seri tehlikede (2+ gün hiç veri yok) > uzun süredir yok >
+        # hedefe çok yakın > antrenman eksik > kilo eksik > iyi seri (övgü) >
+        # ilerleme övgüsü > genel motivasyon
+        if days_since_any is not None and days_since_any >= 2:
+            title, body = pick_message(MSG_STREAK_BROKEN, days=days_since_any)
+        elif days_since_workout is not None and days_since_workout >= 7:
             title, body = pick_message(MSG_LONG_INACTIVE, days=days_since_workout)
         elif remaining_kg is not None and 0 < remaining_kg <= 2:
             title, body = pick_message(MSG_CLOSE_TO_GOAL, kg=remaining_kg)

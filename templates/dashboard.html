@@ -1260,6 +1260,32 @@
     margin-top: 0.2rem;
   }
 
+  .streak-celebration-overlay.is-reset { background: rgba(10,10,15,0.65); }
+  .streak-celebration-card.is-reset {
+    border-color: #5c7cfc50;
+    box-shadow: 0 0 60px 10px #5c7cfc20;
+  }
+  .streak-celebration-flame.is-reset {
+    animation: streakResetShake 0.6s ease;
+  }
+  @keyframes streakResetShake {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-8deg); }
+    75% { transform: rotate(8deg); }
+  }
+  .streak-celebration-number.is-reset {
+    background: linear-gradient(135deg, #8888aa, #5c7cfc);
+    -webkit-background-clip: text;
+    background-clip: text;
+    text-decoration: line-through;
+    text-decoration-color: #ff4d6d80;
+  }
+  .streak-reset-sub {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-top: 0.4rem;
+  }
+
   .streak-particle {
     position: absolute;
     top: 50%;
@@ -4028,16 +4054,34 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
     return `<div class="streak-badge" id="streakBadgeEl"><span class="streak-flame">🔥</span><span id="streakCountEl">${appStreak}</span></div>`;
   }
 
+  function getStoredStreak() {
+    try { return parseInt(localStorage.getItem('fitpro_last_streak') || '0') || 0; } catch (e) { return 0; }
+  }
+  function setStoredStreak(v) {
+    try { localStorage.setItem('fitpro_last_streak', String(v)); } catch (e) {}
+  }
+
   async function refreshStreak(celebrate) {
     try {
       const res = await fetch('/api/streak');
       if (!res.ok) return;
       const data = await res.json();
       const newStreak = data.streak || 0;
+
+      // Uygulama yeni açıldıysa: önceki oturumdan kalan seri ile karşılaştır,
+      // araya 2+ gün girip seri sıfırlandıysa kullanıcıya haber ver
+      if (!streakLoaded) {
+        const prevStored = getStoredStreak();
+        if (prevStored > 0 && newStreak === 0) {
+          setTimeout(() => celebrateStreakReset(prevStored), 500);
+        }
+      }
+
       const increased = streakLoaded && celebrate && newStreak > appStreak;
 
       appStreak = newStreak;
       streakLoaded = true;
+      setStoredStreak(newStreak);
 
       const badgeEl = document.getElementById('streakBadgeEl');
       const countEl = document.getElementById('streakCountEl');
@@ -4050,6 +4094,22 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
 
       if (increased) celebrateStreak(appStreak);
     } catch (e) { /* sessizce geç */ }
+  }
+
+  function celebrateStreakReset(prevStreak) {
+    const overlay = document.createElement('div');
+    overlay.className = 'streak-celebration-overlay is-reset';
+    overlay.innerHTML = `
+      <div class="streak-celebration-card is-reset">
+        <div class="streak-celebration-flame is-reset">💔</div>
+        <div class="streak-celebration-number is-reset">${prevStreak}</div>
+        <div class="streak-celebration-label">Günlük Serin Sona Erdi</div>
+        <div class="streak-reset-sub">Ama sorun değil, bugün yeniden başla 💪</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    setTimeout(() => overlay.classList.add('fade-out'), 2200);
+    setTimeout(() => overlay.remove(), 2700);
   }
 
   function celebrateStreak(streakNum) {
